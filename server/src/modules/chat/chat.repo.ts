@@ -9,9 +9,8 @@ export async function createChat(title: string): Promise<string> {
   return row.id;
 }
 
-export async function chatExists(id: string): Promise<boolean> {
-  const rows = await db.select({ one: sql`1` }).from(chats).where(eq(chats.id, id)).limit(1);
-  return rows.length > 0;
+export async function setChatSummary(id: string, summary: string, throughTurnId: number): Promise<void> {
+  await db.update(chats).set({ summary, summaryThroughTurnId: throughTurnId }).where(eq(chats.id, id));
 }
 
 // Most recent `limit` turns, returned oldest first.

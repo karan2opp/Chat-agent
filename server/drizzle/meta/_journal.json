@@ -43,6 +43,13 @@
       "when": 1794398336149,
       "tag": "0005_aberrant_longshot",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794398581245,
+      "tag": "0006_red_zombie",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,6 @@
 import { run, type AgentInputItem } from "@openai/agents";
 import { agent } from "./chat.agent.js";
-import { fitRecent } from "../memory/context-window.js";
+import { fitRecent, truncateToTokens } from "../memory/context-window.js";
 import { isValidTimeZone } from "../memory/date-resolver.js";
 import { renderProfile } from "../memory/facts.js";
 import { getActiveFacts } from "../memory/facts.repo.js";
@@ -39,8 +39,12 @@ export async function startTurn(chatId: string | undefined, message: string) {
   const history: ChatMessage[] = [];
 
   let id = chatId;
+  let chatSummary: string | undefined;
   if (id) {
-    if (!(await repo.chatExists(id))) throw new ChatNotFoundError();
+    const chat = await repo.getChat(id);
+    if (!chat) throw new ChatNotFoundError();
+    // Older turns that no longer fit below are carried by this running summary.
+    if (chat.summary) chatSummary = truncateToTokens(chat.summary, budgets().summaryTokens);
     const { kept } = fitRecent(await repo.getRecentTurns(id, HISTORY_FETCH), budgets().recentTokens);
     for (const t of kept) {
       history.push({ role: "user", content: t.userText });
@@ -57,6 +61,7 @@ export async function startTurn(chatId: string | undefined, message: string) {
     chatId: id,
     askedAt,
     userProfile,
+    chatSummary,
     messages: [...history, { role: "user", content: message } as ChatMessage],
   };
 }

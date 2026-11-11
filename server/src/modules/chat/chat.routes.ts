@@ -52,6 +52,7 @@ chatRouter.post("/chat", async (req, res) => {
       now: turn.askedAt,
       timeZone,
       userProfile: turn.userProfile,
+      chatSummary: turn.chatSummary,
     });
 
     res.setHeader("Content-Type", "text/plain; charset=utf-8");

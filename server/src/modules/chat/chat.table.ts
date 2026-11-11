@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigserial, index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, bigserial, index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export type TurnSource = { url: string; title: string };
 
@@ -11,6 +11,10 @@ export const chats = pgTable(
     title: text("title").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    // Running summary of the turns of this chat that no longer fit in the recent window, and the
+    // newest turn it covers. Both are empty until the chat gets long enough to need one.
+    summary: text("summary"),
+    summaryThroughTurnId: bigint("summary_through_turn_id", { mode: "number" }),
   },
   (t) => [index("chats_updated_idx").on(t.updatedAt.desc())],
 );

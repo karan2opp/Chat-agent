@@ -1,13 +1,16 @@
 import { z } from "zod";
 import { embed, embeddingModel } from "../../common/llm/embeddings.js";
-import { generateObject } from "../../common/llm/llm.js";
+import { generateObject, generateText } from "../../common/llm/llm.js";
 import { enqueue } from "../../common/queue.js";
 import type { Turn } from "../chat/chat.table.js";
+import * as chatRepo from "../chat/chat.repo.js";
+import { turnsToSummarise } from "./context-window.js";
 import * as claimsRepo from "./claims.repo.js";
 import { FACT_KINDS } from "./fact.table.js";
 import { planFactChanges } from "./facts.js";
 import * as factsRepo from "./facts.repo.js";
 import * as memoryRepo from "./memory.repo.js";
+import { budgets } from "./memory.config.js";
 import { summariseRecentDays } from "./summaries.js";
 
 // Work done about a turn after its reply has been streamed and saved. The user never waits for
@@ -87,10 +90,45 @@ async function extract(turn: Turn): Promise<void> {
 async function embedTurns(turn: Turn): Promise<void> {
   const missing = await memoryRepo.getTurnsWithoutEmbedding(20);
   const batch = missing.some((t) => t.id === turn.id) ? missing : [turn, ...missing];
-  const vectors = await embed(batch.map((t) => `${t.userText}
-${t.assistantText}`));
+  const vectors = await embed(batch.map((t) => `${t.userText}\n${t.assistantText}`));
   const model = embeddingModel();
   for (const [i, t] of batch.entries()) await memoryRepo.saveEmbedding(t.id, vectors[i], model);
+}
+
+const CHAT_SUMMARY_INSTRUCTIONS = `You maintain a running summary of an ongoing conversation between a user and an AI assistant. You get the current summary (if any) and the newer exchanges that are leaving the live conversation window.
+Return the updated summary: keep the user's goals, decisions, names, numbers, preferences, what the assistant concluded, and open questions. Drop greetings and filler. Write plain prose or short bullets, no preamble.`;
+
+// Turns are summarised in batches this big, so a long backlog never becomes one huge model call.
+const SUMMARY_BATCH_TURNS = 30;
+
+// Folds turns that have slid out of this chat's recent window into the chat's running summary.
+// The summary replaces them in the prompt; the turns themselves stay in the database.
+export async function updateChatSummary(chatId: string): Promise<void> {
+  const chat = await chatRepo.getChat(chatId);
+  if (!chat) return;
+
+  const { recentTokens, summaryTokens } = budgets();
+  let pending = turnsToSummarise(await chatRepo.getRecentTurns(chatId, 1000), recentTokens, chat.summaryThroughTurnId);
+
+  let summary = chat.summary ?? "";
+  while (pending.length > 0) {
+    const batch = pending.slice(0, SUMMARY_BATCH_TURNS);
+    pending = pending.slice(SUMMARY_BATCH_TURNS);
+    const exchanges = batch
+      .map((t) => `User: ${t.userText.slice(0, 1500)}\nAssistant: ${t.assistantText.slice(0, 2000)}`)
+      .join("\n\n");
+    summary = await generateText(
+      CHAT_SUMMARY_INSTRUCTIONS,
+      `Keep the summary under about ${Math.floor(summaryTokens * 0.6)} words.
+
+Current summary:
+${summary || "(none yet)"}
+
+Exchanges leaving the window:
+${exchanges}`,
+    );
+    await chatRepo.setChatSummary(chatId, summary, batch[batch.length - 1].id);
+  }
 }
 
 async function step(name: string, fn: () => Promise<void>): Promise<void> {
@@ -107,6 +145,7 @@ export function enrichAfterTurn(turn: Turn, timeZone: string): void {
     await step("embed turns", () => embedTurns(turn));
     await step("extract claims and profile facts", () => extract(turn));
     // Finished days get their summary now, so asking about them later does not wait for it.
+    await step("summarise turns that left the window", () => updateChatSummary(turn.chatId));
     await step("summarise finished days", () => summariseRecentDays(timeZone, turn.askedAt));
   });
 }
