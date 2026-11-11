@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { isValidTimeZone, resolveWhen } from "./date-resolver.js";
+import { dayBounds, eachDay, isValidTimeZone, resolveWhen } from "./date-resolver.js";
 
 // Wednesday 11 November 2026, 10:00 UTC.
 const NOW = new Date("2026-11-11T10:00:00Z");
@@ -127,5 +127,39 @@ describe("resolveWhen: failures", () => {
     const result = resolveWhen("sometime soonish", { now: NOW, timeZone: "UTC" });
     assert.equal(result.ok, false);
     if (!result.ok) assert.match(result.reason, /yesterday/);
+  });
+});
+
+describe("resolveWhen: granularity and day bounds", () => {
+  const range = (phrase: string) => {
+    const r = resolveWhen(phrase, { now: NOW, timeZone: "UTC" });
+    assert.ok(r.ok);
+    return r.range;
+  };
+
+  it("says what kind of period was named", () => {
+    assert.deepEqual(
+      ["yesterday", "last week", "October", "last year", "last 7 days"].map((p) => range(p).granularity),
+      ["day", "week", "month", "year", "span"],
+    );
+  });
+
+  it("reports the first and last calendar day", () => {
+    const week = range("last week");
+    assert.equal(week.firstDay, "2026-11-02");
+    assert.equal(week.lastDay, "2026-11-08");
+    assert.equal(range("3 November").firstDay, range("3 November").lastDay);
+  });
+});
+
+describe("day helpers", () => {
+  it("lists every day in a range", () => {
+    assert.deepEqual(eachDay("2026-02-27", "2026-03-02"), ["2026-02-27", "2026-02-28", "2026-03-01", "2026-03-02"]);
+  });
+
+  it("computes the instants for whole days in a zone", () => {
+    const { from, to } = dayBounds("2026-11-03", "2026-11-04", "Asia/Kolkata");
+    assert.equal(from.toISOString(), "2026-11-02T18:30:00.000Z");
+    assert.equal(to.toISOString(), "2026-11-04T18:30:00.000Z");
   });
 });

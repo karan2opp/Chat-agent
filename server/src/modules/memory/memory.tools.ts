@@ -4,6 +4,9 @@ import { resolveWhen, type DateRange } from "./date-resolver.js";
 import { buildTimelines } from "./claims.js";
 import * as claimsRepo from "./claims.repo.js";
 import * as repo from "./memory.repo.js";
+import * as summaryRepo from "./summaries.repo.js";
+import { summariesForRange } from "./summaries.js";
+import type { Summary } from "./summary.table.js";
 
 // Per-request data the tools need, passed to the agent run as its context.
 export type AgentContext = {
@@ -44,6 +47,30 @@ function present(turn: repo.MemoryTurn, timeZone: string) {
   };
 }
 
+// A day with more turns than this is answered with its summary (and pointers to the turns)
+// instead of every question and answer.
+const MAX_RAW_DAY_TURNS = 10;
+
+function presentSummary(s: Summary, pointers: number[]) {
+  return {
+    summaryId: s.id,
+    level: s.level,
+    period: s.periodStart === s.periodEnd ? s.periodStart : `${s.periodStart} to ${s.periodEnd}`,
+    conversationsCovered: s.turnCount,
+    summary: s.text,
+    // The raw turns (for a day) or the lower-level summaries (otherwise) this was built from.
+    [s.level === "day" ? "turnIds" : "childSummaryIds"]: pointers,
+  };
+}
+
+async function presentSummaries(list: Summary[]) {
+  const pointers = await summaryRepo.getPointers(list.map((s) => s.id));
+  return list.map((s) => presentSummary(s, pointers.get(s.id) ?? []));
+}
+
+const DETAIL_HINT =
+  "These are summaries. If the user needs exact wording or details, call expand_summary with a summaryId to get what it was built from.";
+
 function describeRange(range: DateRange, timeZone: string) {
   return { period: range.label, timeZone };
 }
@@ -56,7 +83,7 @@ export const recallByDate = tool({
     "Look up what the user asked you, and what you answered, during a past period. Pass the user's own " +
     'words for the date, such as "yesterday", "last Tuesday", "3 November", "last week" or "2 weeks ago". ' +
     "The date is worked out in code, so do not convert it yourself. Returns the saved questions and answers " +
-    'with the web sources they cited, or "no record" if nothing was asked in that period.',
+    '(or, for a week, month, year or a busy day, summaries of them with pointers to the details), or "no record" if nothing was asked in that period.',
   parameters: z.object({
     when: z.string().describe("The date or period, in the user's own words."),
   }),
@@ -65,18 +92,40 @@ export const recallByDate = tool({
     const resolved = resolveWhen(when, { now: ctx.now, timeZone: ctx.timeZone });
     if (!resolved.ok) return json({ error: resolved.reason });
 
-    const { turns, more } = await repo.getTurnsBetween(resolved.range.from, resolved.range.to, MAX_TURNS);
-    if (turns.length === 0) {
-      return json({
-        ...describeRange(resolved.range, ctx.timeZone),
+    const { range } = resolved;
+    const noRecord = () =>
+      json({
+        ...describeRange(range, ctx.timeZone),
         result: "no record",
         note: "Nothing was saved for this period. Tell the user you have no record of it. Do not guess.",
       });
+
+    // Longer periods are answered from summaries, one level up from the raw turns.
+    if (range.granularity !== "day") {
+      const { summaries, truncated } = await summariesForRange(range, ctx.timeZone);
+      if (summaries.length === 0) return noRecord();
+      return json({
+        ...describeRange(range, ctx.timeZone),
+        summaries: await presentSummaries(summaries),
+        note: DETAIL_HINT + (truncated ? " Only the most recent days of the period are shown." : ""),
+      });
     }
+
+    const { turns } = await repo.getTurnsBetween(range.from, range.to, MAX_RAW_DAY_TURNS + 1);
+    if (turns.length > MAX_RAW_DAY_TURNS) {
+      const { summaries } = await summariesForRange(range, ctx.timeZone);
+      if (summaries.length > 0) {
+        return json({
+          ...describeRange(range, ctx.timeZone),
+          summaries: await presentSummaries(summaries),
+          note: "A busy day, so this is its summary. " + DETAIL_HINT,
+        });
+      }
+    }
+    if (turns.length === 0) return noRecord();
     return json({
-      ...describeRange(resolved.range, ctx.timeZone),
+      ...describeRange(range, ctx.timeZone),
       turns: turns.map((t) => present(t, ctx.timeZone)),
-      ...(more ? { note: `Showing the first ${MAX_TURNS} turns of the period; there are more.` } : {}),
     });
   },
 });
@@ -115,6 +164,30 @@ export const searchMemory = tool({
     return json({
       ...(range ? describeRange(range, ctx.timeZone) : {}),
       turns: found.map((t) => present(t, ctx.timeZone)),
+    });
+  },
+});
+
+export const expandSummary = tool({
+  name: "expand_summary",
+  description:
+    "Open a summary returned by recall_by_date to see what it was built from: for a day, the saved questions and " +
+    "answers; for a week, month or year, the shorter summaries beneath it (which can be expanded again).",
+  parameters: z.object({ summaryId: z.number().int().describe("The summaryId from a previous result.") }),
+  async execute({ summaryId }, runContext) {
+    const ctx = runContext?.context as AgentContext;
+    const summary = await summaryRepo.getSummaryById(summaryId);
+    if (!summary) return json({ error: "No summary with that id." });
+
+    if (summary.level === "day") {
+      const turns = await summaryRepo.getSummaryTurns(summaryId);
+      return json({ period: summary.periodStart, turns: turns.slice(0, MAX_TURNS).map((t) => present(t, ctx.timeZone)) });
+    }
+    const children = await summaryRepo.getChildSummaries(summaryId);
+    return json({
+      period: `${summary.periodStart} to ${summary.periodEnd}`,
+      summaries: await presentSummaries(children),
+      note: DETAIL_HINT,
     });
   },
 });
@@ -171,4 +244,4 @@ export const getClaims = tool({
   },
 });
 
-export const memoryTools = [recallByDate, searchMemory, getClaims];
+export const memoryTools = [recallByDate, expandSummary, searchMemory, getClaims];

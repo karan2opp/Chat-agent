@@ -2,10 +2,17 @@
 // time range. This runs in code, not in the model, because models are unreliable at calendar
 // arithmetic. The current time and the user's time zone are passed in, so tests can fix both.
 
+// What kind of period a phrase named. "span" is any other run of days, such as "last 7 days".
+export type Granularity = "day" | "week" | "month" | "year" | "span";
+
 export type DateRange = {
   // Start of the range (inclusive) and end (exclusive), as real instants.
   from: Date;
   to: Date;
+  granularity: Granularity;
+  // The first and last calendar day in the range, as YYYY-MM-DD in the user's time zone.
+  firstDay: string;
+  lastDay: string;
   // Human-readable description of what was resolved, e.g. "Tuesday 3 November 2026".
   label: string;
 };
@@ -121,32 +128,62 @@ function startOfDay(c: Civil, timeZone: string): Date {
 
 // ---- ranges ----
 
+export function isoDay(c: Civil): string {
+  return `${String(c.y).padStart(4, "0")}-${String(c.m).padStart(2, "0")}-${String(c.d).padStart(2, "0")}`;
+}
+
+export function parseIsoDay(day: string): Civil {
+  const [y, m, d] = day.split("-").map(Number);
+  return { y, m, d };
+}
+
+// Every calendar day from first to last, inclusive, as YYYY-MM-DD.
+export function eachDay(firstDay: string, lastDay: string): string[] {
+  const days: string[] = [];
+  for (let c = parseIsoDay(firstDay); !isAfter(c, parseIsoDay(lastDay)); c = addDays(c, 1)) days.push(isoDay(c));
+  return days;
+}
+
+// The instants covered by whole days first..last (inclusive) in the zone.
+export function dayBounds(firstDay: string, lastDay: string, timeZone: string): { from: Date; to: Date } {
+  return {
+    from: startOfDay(parseIsoDay(firstDay), timeZone),
+    to: startOfDay(addDays(parseIsoDay(lastDay), 1), timeZone),
+  };
+}
+
 // `last` is the final day included in the range.
-function between(first: Civil, last: Civil, timeZone: string, label: string): ResolveResult {
+function between(first: Civil, last: Civil, timeZone: string, label: string, granularity: Granularity): ResolveResult {
   return {
     ok: true,
-    range: { from: startOfDay(first, timeZone), to: startOfDay(addDays(last, 1), timeZone), label },
+    range: {
+      ...dayBounds(isoDay(first), isoDay(last), timeZone),
+      granularity,
+      firstDay: isoDay(first),
+      lastDay: isoDay(last),
+      label,
+    },
   };
 }
 
 function oneDay(c: Civil, timeZone: string): ResolveResult {
-  return between(c, c, timeZone, formatDay(c));
+  return between(c, c, timeZone, formatDay(c), "day");
 }
 
 function weekOf(c: Civil, timeZone: string): ResolveResult {
   const first = weekStart(c);
   const last = addDays(first, 6);
-  return between(first, last, timeZone, `Week of ${formatShort(first)} to ${formatShort(last)}`);
+  return between(first, last, timeZone, `Week of ${formatShort(first)} to ${formatShort(last)}`, "week");
 }
 
 function monthOf(y: number, m: number, timeZone: string): ResolveResult {
   const first = monthStart(y, m);
   const last = addDays(monthStart(y, m + 1), -1);
-  return between(first, last, timeZone, `${capitalise(MONTH_NAMES[first.m - 1])} ${first.y}`);
+  return between(first, last, timeZone, `${capitalise(MONTH_NAMES[first.m - 1])} ${first.y}`, "month");
 }
 
 function yearOf(y: number, timeZone: string): ResolveResult {
-  return between({ y, m: 1, d: 1 }, { y, m: 12, d: 31 }, timeZone, String(y));
+  return between({ y, m: 1, d: 1 }, { y, m: 12, d: 31 }, timeZone, String(y), "year");
 }
 
 // ---- parsing ----
@@ -211,7 +248,13 @@ export function resolveWhen(phrase: string, { now, timeZone }: ResolveOptions): 
   // "last 7 days" runs from 7 days ago up to and including today.
   if ((m = s.match(/^(?:last|past) (\d+) days$/))) {
     const n = Number(m[1]);
-    return between(addDays(today, -n), today, timeZone, `${formatShort(addDays(today, -n))} to ${formatShort(today)}`);
+    return between(
+      addDays(today, -n),
+      today,
+      timeZone,
+      `${formatShort(addDays(today, -n))} to ${formatShort(today)}`,
+      "span",
+    );
   }
 
   if ((m = s.match(/^(this|last|past) (week|month|year)$/))) {

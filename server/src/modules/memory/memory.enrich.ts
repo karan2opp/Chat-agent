@@ -6,6 +6,7 @@ import * as claimsRepo from "./claims.repo.js";
 import { FACT_KINDS } from "./fact.table.js";
 import { planFactChanges } from "./facts.js";
 import * as factsRepo from "./facts.repo.js";
+import { summariseRecentDays } from "./summaries.js";
 
 // Work done about a turn after its reply has been streamed and saved. The user never waits for
 // any of it. Each step is independent: one failing does not stop the others.
@@ -89,8 +90,10 @@ async function step(name: string, fn: () => Promise<void>): Promise<void> {
 }
 
 // Queues the follow-up work for a saved turn. Returns immediately.
-export function enrichAfterTurn(turn: Turn, _timeZone: string): void {
+export function enrichAfterTurn(turn: Turn, timeZone: string): void {
   enqueue("enrich turn", async () => {
     await step("extract claims and profile facts", () => extract(turn));
+    // Finished days get their summary now, so asking about them later does not wait for it.
+    await step("summarise finished days", () => summariseRecentDays(timeZone, turn.askedAt));
   });
 }
