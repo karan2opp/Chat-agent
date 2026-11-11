@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { MAX_RETRIES } from "./resilience.js";
 
 // Turns text into vectors so that "cheap database hosting" can find a turn that only says
 // "Postgres on Neon's free tier". The default model produces vectors of EMBEDDING_DIMENSIONS.
@@ -11,7 +12,10 @@ let client: OpenAI | undefined;
 
 export async function embed(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return [];
-  client ??= new OpenAI();
+  // The client retries rate limits, server errors and dropped connections itself, waiting longer
+  // each time (about 0.5s, 1s, 2s, ... with some randomness) and obeying a "retry after" hint.
+  // The timeout keeps one stuck request from holding up the rest.
+  client ??= new OpenAI({ maxRetries: MAX_RETRIES, timeout: 30_000 });
   const response = await client.embeddings.create({
     model: embeddingModel(),
     input: texts.map((t) => t.slice(0, MAX_CHARS)),

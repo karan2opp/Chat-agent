@@ -1,7 +1,8 @@
 import { Agent, webSearchTool } from "@openai/agents";
+import { replyModelSettings } from "../../common/llm/resilience.js";
 import { memoryTools, type AgentContext } from "../memory/memory.tools.js";
 
-const RULES = `You are a helpful chat assistant.
+const RULES = `You are a helpful chat assistant. 
 
 Tools:
 - web_search: for anything that may have changed recently (prices, versions, news, releases) and facts you are unsure about.
@@ -38,4 +39,5 @@ export const agent = new Agent<AgentContext>({
   instructions,
   model: process.env.OPENAI_MODEL ?? "gpt-5.6-luna",
   tools: [webSearchTool(), ...memoryTools],
+  modelSettings: replyModelSettings(),
 });
