@@ -1,28 +1,30 @@
-export type ChatMessage = { role: "user" | "assistant"; content: string };
-
-// POSTs the conversation and calls onChunk with each piece of text as it arrives.
+// Sends one message to a chat (or starts a new chat when chatId is undefined) and calls
+// onChunk with each piece of the reply as it arrives. Resolves to the chat's id.
 export async function streamChat(
-  messages: ChatMessage[],
+  chatId: string | undefined,
+  message: string,
   onChunk: (text: string) => void,
   signal?: AbortSignal,
-): Promise<void> {
+): Promise<string | undefined> {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ chatId, message }),
     signal,
   });
 
   if (!res.ok || !res.body) {
-    let message = `Request failed (${res.status})`;
+    let errorMessage = `Request failed (${res.status})`;
     try {
       const data = await res.json();
-      if (data?.error) message = data.error;
+      if (data?.error) errorMessage = data.error;
     } catch {
       // keep the generic message
     }
-    throw new Error(message);
+    throw new Error(errorMessage);
   }
+
+  const returnedId = res.headers.get("X-Chat-Id") ?? chatId;
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -31,4 +33,5 @@ export async function streamChat(
     if (done) break;
     onChunk(decoder.decode(value, { stream: true }));
   }
+  return returnedId;
 }

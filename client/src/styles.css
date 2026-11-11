@@ -9,19 +9,125 @@ body {
   color: #1d1d1f;
 }
 
-.app {
+.layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  height: 100vh;
+}
+
+/* ---- sidebar ---- */
+
+.sidebar {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  max-width: 760px;
-  margin: 0 auto;
+  min-height: 0;
+  background: #f5f5f7;
+  border-right: 1px solid #e5e5ea;
+}
+
+.sidebar-top {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.brand {
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.new-chat {
+  padding: 8px 12px;
+  border: 1px solid #d2d2d7;
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.new-chat:hover {
+  background: #fafafa;
+}
+
+.chat-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 8px 16px;
+}
+
+.chat-list-empty {
+  margin: 16px 8px;
+  color: #86868b;
+  font-size: 14px;
+}
+
+.chat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.chat-item:hover {
+  background: #ebebef;
+}
+
+.chat-item.active {
+  background: #e1e1e8;
+}
+
+.chat-item-title {
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-item-date {
+  font-size: 12px;
+  color: #86868b;
+}
+
+/* ---- main column ---- */
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
   background: #fff;
 }
 
-.app-header {
+.main-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 14px 20px;
-  font-weight: 600;
   border-bottom: 1px solid #e5e5ea;
+}
+
+.main-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-only {
+  display: none;
 }
 
 .chat {
@@ -29,6 +135,9 @@ body {
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
 }
 
 .messages {
@@ -103,4 +212,20 @@ body {
 .composer button:disabled {
   background: #b8d9ff;
   cursor: not-allowed;
+}
+
+/* ---- narrow screens: hide the sidebar, keep a "New chat" button in the header ---- */
+
+@media (max-width: 720px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .mobile-only {
+    display: inline-block;
+  }
 }
