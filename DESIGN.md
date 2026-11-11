@@ -35,6 +35,8 @@ similarity problem, so the core is exact lookup by time and structured claims; e
 Memory is exposed as tools so turns that need no memory pay nothing, and the model can chain recall → search → compare.
 The 1M window is not the constraint, cost, latency and answer quality are, so budgets are small, configurable caps.
 
+**When a model call fails:** transient errors (network, rate limit, 5xx) are retried 3 times with growing, jittered waits; a bad request or key fails at once; every call has a timeout. A reply that fails is never saved, and the client gives the question back with a Retry button. Background work is never lost: each turn records whether its claims and facts were read (3 attempts), embeddings and summaries are rebuilt when missing, and a stuck job is dropped after 5 minutes so it cannot block the rest.
+
 ## Considered and rejected
 
 - **Put all history in the context window:** works for one demo user, but cost and latency grow with history, accuracy drops, and it is not an architecture.
@@ -50,5 +52,5 @@ The 1M window is not the constraint, cost, latency and answer quality are, so bu
 
 - **Price comparison is only as good as extraction.** Billing period, currency and plan are in the value text but not normalised; a "monthly vs annual" mix-up can look like a change. Next: structured price fields, and an eval suite with a fake clock and seeded history that scores the three question types.
 - **First byte takes 3–8 s when a tool runs** (measured locally). Stream a "Searching memory…" status event, and add a cheap router so small talk skips tools.
-- **Background jobs are in-process.** A crash loses them (embeddings self-heal on the next turn; claims do not). Next: a durable job table.
+- **Background jobs are in-process.** A crash or outage delays them rather than loses them (they catch up after the next turn), but nothing runs until a turn arrives. Next: a durable job table with a scheduler.
 - **One user, estimated tokens (chars/4).** Add auth and a per-user key on facts/claims, a real tokenizer, and a way to view, edit and delete what is remembered.
