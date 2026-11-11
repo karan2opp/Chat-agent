@@ -1,6 +1,7 @@
-import { and, asc, desc, gte, lt, sql, type SQL } from "drizzle-orm";
+import { and, asc, cosineDistance, desc, eq, gte, isNull, lt, sql, type SQL } from "drizzle-orm";
 import { db } from "../../common/db/client.js";
 import { turns, type Turn } from "../chat/chat.table.js";
+import { turnEmbeddings } from "./embedding.table.js";
 
 export type MemoryTurn = Turn;
 
@@ -45,4 +46,45 @@ export async function searchTurns(
   const words = [...new Set(query.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])];
   if (words.length < 2) return [];
   return runSearch(sql`websearch_to_tsquery('english', ${words.join(" or ")})`, range, limit);
+}
+
+// ---- search by meaning ----
+
+// Cosine distance runs from 0 (same meaning) to 2. Matches further away than this are noise: a
+// vector search always returns its nearest rows, even when none of them are related.
+const MAX_DISTANCE = 0.65;
+
+export async function saveEmbedding(turnId: number, embedding: number[], model: string): Promise<void> {
+  await db.insert(turnEmbeddings).values({ turnId, embedding, model }).onConflictDoNothing();
+}
+
+// Turns that have no embedding yet, newest first (used to catch up after a failure, or on rows
+// that were added without going through a reply).
+export async function getTurnsWithoutEmbedding(limit: number): Promise<MemoryTurn[]> {
+  const rows = await db
+    .select({ turn: turns })
+    .from(turns)
+    .leftJoin(turnEmbeddings, eq(turnEmbeddings.turnId, turns.id))
+    .where(isNull(turnEmbeddings.turnId))
+    .orderBy(desc(turns.id))
+    .limit(limit);
+  return rows.map((r) => r.turn);
+}
+
+export async function searchTurnsByMeaning(
+  queryEmbedding: number[],
+  range: { from: Date; to: Date } | undefined,
+  limit: number,
+): Promise<MemoryTurn[]> {
+  const distance = cosineDistance(turnEmbeddings.embedding, queryEmbedding);
+  const conditions: SQL[] = [lt(distance, MAX_DISTANCE)];
+  if (range) conditions.push(gte(turns.askedAt, range.from), lt(turns.askedAt, range.to));
+  const rows = await db
+    .select({ turn: turns })
+    .from(turnEmbeddings)
+    .innerJoin(turns, eq(turns.id, turnEmbeddings.turnId))
+    .where(and(...conditions))
+    .orderBy(distance)
+    .limit(limit);
+  return rows.map((r) => r.turn);
 }

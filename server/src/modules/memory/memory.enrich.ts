@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { embed, embeddingModel } from "../../common/llm/embeddings.js";
 import { generateObject } from "../../common/llm/llm.js";
 import { enqueue } from "../../common/queue.js";
 import type { Turn } from "../chat/chat.table.js";
@@ -6,6 +7,7 @@ import * as claimsRepo from "./claims.repo.js";
 import { FACT_KINDS } from "./fact.table.js";
 import { planFactChanges } from "./facts.js";
 import * as factsRepo from "./facts.repo.js";
+import * as memoryRepo from "./memory.repo.js";
 import { summariseRecentDays } from "./summaries.js";
 
 // Work done about a turn after its reply has been streamed and saved. The user never waits for
@@ -81,6 +83,16 @@ async function extract(turn: Turn): Promise<void> {
   await factsRepo.applyFactChanges(planFactChanges(knownFacts, result.userFacts), turn.id);
 }
 
+// Embeds this turn and any older turns that missed out (a failed call, or rows added directly).
+async function embedTurns(turn: Turn): Promise<void> {
+  const missing = await memoryRepo.getTurnsWithoutEmbedding(20);
+  const batch = missing.some((t) => t.id === turn.id) ? missing : [turn, ...missing];
+  const vectors = await embed(batch.map((t) => `${t.userText}
+${t.assistantText}`));
+  const model = embeddingModel();
+  for (const [i, t] of batch.entries()) await memoryRepo.saveEmbedding(t.id, vectors[i], model);
+}
+
 async function step(name: string, fn: () => Promise<void>): Promise<void> {
   try {
     await fn();
@@ -92,6 +104,7 @@ async function step(name: string, fn: () => Promise<void>): Promise<void> {
 // Queues the follow-up work for a saved turn. Returns immediately.
 export function enrichAfterTurn(turn: Turn, timeZone: string): void {
   enqueue("enrich turn", async () => {
+    await step("embed turns", () => embedTurns(turn));
     await step("extract claims and profile facts", () => extract(turn));
     // Finished days get their summary now, so asking about them later does not wait for it.
     await step("summarise finished days", () => summariseRecentDays(timeZone, turn.askedAt));

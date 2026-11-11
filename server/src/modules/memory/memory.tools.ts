@@ -4,6 +4,7 @@ import { resolveWhen, type DateRange } from "./date-resolver.js";
 import { buildTimelines } from "./claims.js";
 import * as claimsRepo from "./claims.repo.js";
 import * as repo from "./memory.repo.js";
+import { searchMemory as searchMemoryTurns } from "./memory.search.js";
 import * as summaryRepo from "./summaries.repo.js";
 import { summariesForRange } from "./summaries.js";
 import type { Summary } from "./summary.table.js";
@@ -135,7 +136,7 @@ export const searchMemory = tool({
   description:
     "Search the user's past conversations by topic, for example when they ask when they asked about " +
     'something, or refer to "the CRM tools we shortlisted" or "my Postgres question". Matches words, ' +
-    "best match first. Optionally limit it to a period. Returns the saved questions and answers with their " +
+    "best match first. It matches on exact words and on meaning, so a paraphrase finds it too. Optionally limit it to a period. Returns the saved questions and answers with their " +
     'dates and cited sources, or "no record" if nothing matches.',
   parameters: z.object({
     query: z.string().describe("A few keywords for the topic, e.g. 'postgres hosting pricing'."),
@@ -153,7 +154,7 @@ export const searchMemory = tool({
       range = resolved.range;
     }
 
-    const found = await repo.searchTurns(query, range, MAX_TURNS);
+    const found = await searchMemoryTurns(query, range, MAX_TURNS);
     if (found.length === 0) {
       return json({
         result: "no record",
