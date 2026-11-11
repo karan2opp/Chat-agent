@@ -295,6 +295,26 @@ body {
   background: #fdecea;
   color: #b3261e;
   font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.error button {
+  flex: none;
+  padding: 4px 12px;
+  border: 1px solid #b3261e;
+  border-radius: 6px;
+  background: transparent;
+  color: #b3261e;
+  font: inherit;
+  cursor: pointer;
+}
+
+.error button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .composer {

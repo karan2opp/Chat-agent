@@ -15,6 +15,9 @@ import {
 
 export const chatRouter = Router();
 
+// Record separator: a character a model reply never contains. Same value as in the client.
+const STREAM_ERROR_MARKER = "\u001e";
+
 // Streams the assistant's reply as plain text. The chat id comes back in the X-Chat-Id header.
 // Nothing is written to the database until the whole reply has been streamed.
 chatRouter.post("/chat", async (req, res) => {
@@ -85,7 +88,9 @@ chatRouter.post("/chat", async (req, res) => {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("chat error:", message);
     if (res.headersSent) {
-      res.write(`\n\n[error: ${message}]`);
+      // Text has already gone out, so the status can no longer change. The client treats
+      // everything after this control character as the error, never as part of the reply.
+      res.write(`${STREAM_ERROR_MARKER}${message}`);
       res.end();
     } else {
       res.status(500).json({ error: message });

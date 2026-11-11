@@ -20,6 +20,8 @@ export default function Chat({ chatId: initialChatId, onChatCreated, onTurnSaved
   const [loading, setLoading] = useState(Boolean(initialChatId));
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The message whose reply failed, so the error banner can offer to send it again.
+  const [failedText, setFailedText] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const mounted = useRef(true);
 
@@ -64,8 +66,9 @@ export default function Chat({ chatId: initialChatId, onChatCreated, onTurnSaved
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function send() {
-    const text = input.trim();
+  // `retryText` is a message that failed earlier; the box is left alone so a new draft survives.
+  async function send(retryText?: string) {
+    const text = (retryText ?? input).trim();
     if (!text || streaming || loading) return;
 
     setMessages((prev) => [
@@ -73,8 +76,9 @@ export default function Chat({ chatId: initialChatId, onChatCreated, onTurnSaved
       { role: "user", content: text },
       { role: "assistant", content: "" },
     ]);
-    setInput("");
+    if (retryText === undefined) setInput("");
     setError(null);
+    setFailedText(null);
     setStreaming(true);
 
     try {
@@ -95,10 +99,12 @@ export default function Chat({ chatId: initialChatId, onChatCreated, onTurnSaved
       onTurnSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
-      // Drop the empty assistant bubble if nothing streamed in.
-      setMessages((prev) =>
-        prev[prev.length - 1]?.content === "" ? prev.slice(0, -1) : prev,
-      );
+      // The server saves nothing when a reply fails, so take the question and any partial reply
+      // back out of the list (a reload would not show them either), and hand the question back
+      // so it can be edited or sent again. A draft typed in the meantime is not overwritten.
+      setMessages((prev) => prev.slice(0, -2));
+      setFailedText(text);
+      setInput((current) => (current === "" ? text : current));
     } finally {
       setStreaming(false);
     }
@@ -130,7 +136,16 @@ export default function Chat({ chatId: initialChatId, onChatCreated, onTurnSaved
         <div ref={bottomRef} />
       </div>
 
-      {error && <div className="error">{error}</div>}
+      {error && (
+        <div className="error">
+          <span>{error}</span>
+          {failedText && (
+            <button onClick={() => void send(failedText)} disabled={streaming}>
+              Retry
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="composer">
         <textarea
