@@ -71,6 +71,28 @@ export async function getTurnsWithoutEmbedding(limit: number): Promise<MemoryTur
   return rows.map((r) => r.turn);
 }
 
+// Turns whose claims and profile facts have not been read out yet, oldest first. Turns that have
+// already used up their attempts are left alone.
+export function getTurnsPendingExtraction(maxAttempts: number, limit: number): Promise<Turn[]> {
+  return db
+    .select()
+    .from(turns)
+    .where(and(isNull(turns.extractedAt), lt(turns.extractionAttempts, maxAttempts)))
+    .orderBy(asc(turns.id))
+    .limit(limit);
+}
+
+export async function recordExtractionAttempt(turnId: number): Promise<void> {
+  await db
+    .update(turns)
+    .set({ extractionAttempts: sql`${turns.extractionAttempts} + 1` })
+    .where(eq(turns.id, turnId));
+}
+
+export async function markExtracted(turnId: number): Promise<void> {
+  await db.update(turns).set({ extractedAt: new Date() }).where(eq(turns.id, turnId));
+}
+
 export async function searchTurnsByMeaning(
   queryEmbedding: number[],
   range: { from: Date; to: Date } | undefined,

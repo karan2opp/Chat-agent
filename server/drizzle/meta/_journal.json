@@ -50,6 +50,13 @@
       "when": 1794398581245,
       "tag": "0006_red_zombie",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794407654706,
+      "tag": "0007_lazy_iceman",
+      "breakpoints": true
     }
   ]
 }

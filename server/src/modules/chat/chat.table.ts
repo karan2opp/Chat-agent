@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, bigserial, index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, bigserial, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export type TurnSource = { url: string; title: string };
 
@@ -35,6 +35,10 @@ export const turns = pgTable(
     askedAt: timestamp("asked_at", { withTimezone: true }).notNull(),
     // When the reply finished streaming and was saved.
     answeredAt: timestamp("answered_at", { withTimezone: true }).notNull().defaultNow(),
+    // Set once claims and profile facts have been read out of this turn. A turn where that failed
+    // stays unset and is tried again after a later turn, up to a few attempts.
+    extractedAt: timestamp("extracted_at", { withTimezone: true }),
+    extractionAttempts: integer("extraction_attempts").notNull().default(0),
   },
   (t) => [
     index("turns_chat_idx").on(t.chatId, t.id),

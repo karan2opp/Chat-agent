@@ -70,7 +70,8 @@ async function extract(turn: Turn): Promise<void> {
   const result = await generateObject(Extracted, INSTRUCTIONS, input);
 
   if (turn.sources.length > 0) {
-    await claimsRepo.insertClaims(
+    await claimsRepo.replaceClaimsForTurn(
+      turn.id,
       result.claims.map((c) => ({
         turnId: turn.id,
         topic: c.topic,
@@ -84,6 +85,30 @@ async function extract(turn: Turn): Promise<void> {
     );
   }
   await factsRepo.applyFactChanges(planFactChanges(knownFacts, result.userFacts), turn.id);
+}
+
+// A turn is read this many times at most; after that it is left alone instead of failing forever.
+const MAX_EXTRACTION_ATTEMPTS = 3;
+// Turns read per run, so a long backlog (after an outage) catches up over several turns.
+const EXTRACTIONS_PER_RUN = 5;
+
+// Reads out the claims and profile facts of every turn that has not had it done: the new turn,
+// and older ones where an earlier attempt failed. Oldest first, so that when the user changed
+// their mind the later statement is the one that stays. It stops at the first failure, because
+// the model is probably unavailable and the rest wait for the next turn.
+async function extractPending(): Promise<void> {
+  for (const turn of await memoryRepo.getTurnsPendingExtraction(MAX_EXTRACTION_ATTEMPTS, EXTRACTIONS_PER_RUN)) {
+    await memoryRepo.recordExtractionAttempt(turn.id);
+    try {
+      await extract(turn);
+    } catch (err) {
+      if (turn.extractionAttempts + 1 >= MAX_EXTRACTION_ATTEMPTS) {
+        console.error(`memory: giving up on reading turn ${turn.id} after ${MAX_EXTRACTION_ATTEMPTS} attempts`);
+      }
+      throw err;
+    }
+    await memoryRepo.markExtracted(turn.id);
+  }
 }
 
 // Embeds this turn and any older turns that missed out (a failed call, or rows added directly).
@@ -143,7 +168,7 @@ async function step(name: string, fn: () => Promise<void>): Promise<void> {
 export function enrichAfterTurn(turn: Turn, timeZone: string): void {
   enqueue("enrich turn", async () => {
     await step("embed turns", () => embedTurns(turn));
-    await step("extract claims and profile facts", () => extract(turn));
+    await step("extract claims and profile facts", extractPending);
     // Finished days get their summary now, so asking about them later does not wait for it.
     await step("summarise turns that left the window", () => updateChatSummary(turn.chatId));
     await step("summarise finished days", () => summariseRecentDays(timeZone, turn.askedAt));

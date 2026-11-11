@@ -1,9 +1,18 @@
-import { and, asc, gte, lt, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, gte, lt, sql, type SQL } from "drizzle-orm";
 import { db } from "../../common/db/client.js";
 import { claims, type Claim, type NewClaim } from "./claim.table.js";
 
 export async function insertClaims(rows: NewClaim[]): Promise<void> {
   if (rows.length > 0) await db.insert(claims).values(rows);
+}
+
+// Saves the claims read from one turn, replacing any saved from it earlier, so reading the same
+// turn again (after a failure partway through) never stores its claims twice.
+export async function replaceClaimsForTurn(turnId: number, rows: NewClaim[]): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.delete(claims).where(eq(claims.turnId, turnId));
+    if (rows.length > 0) await tx.insert(claims).values(rows);
+  });
 }
 
 const searchVector = sql`to_tsvector('english', ${claims.topic} || ' ' || ${claims.subject} || ' ' || ${claims.attribute})`;
