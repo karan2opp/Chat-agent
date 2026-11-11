@@ -1,0 +1,116 @@
+import { tool } from "@openai/agents";
+import { z } from "zod";
+import { resolveWhen, type DateRange } from "./date-resolver.js";
+import * as repo from "./memory.repo.js";
+
+// Per-request data the tools need, passed to the agent run as its context.
+export type AgentContext = {
+  timeZone: string;
+  now: Date;
+};
+
+const MAX_TURNS = 20;
+// Long answers are cut so a few turns cannot fill the prompt; the full text stays in the database.
+const MAX_REPLY_CHARS = 1500;
+
+function formatLocal(instant: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(instant);
+}
+
+function present(turn: repo.MemoryTurn, timeZone: string) {
+  const long = turn.assistantText.length > MAX_REPLY_CHARS;
+  return {
+    id: turn.id,
+    askedAt: formatLocal(turn.askedAt, timeZone),
+    userAsked: turn.userText,
+    assistantReplied: long ? `${turn.assistantText.slice(0, MAX_REPLY_CHARS)}...` : turn.assistantText,
+    replyWasShortened: long,
+    sourcesCited: turn.sources,
+  };
+}
+
+function describeRange(range: DateRange, timeZone: string) {
+  return { period: range.label, timeZone };
+}
+
+const json = (value: unknown) => JSON.stringify(value);
+
+export const recallByDate = tool({
+  name: "recall_by_date",
+  description:
+    "Look up what the user asked you, and what you answered, during a past period. Pass the user's own " +
+    'words for the date, such as "yesterday", "last Tuesday", "3 November", "last week" or "2 weeks ago". ' +
+    "The date is worked out in code, so do not convert it yourself. Returns the saved questions and answers " +
+    'with the web sources they cited, or "no record" if nothing was asked in that period.',
+  parameters: z.object({
+    when: z.string().describe("The date or period, in the user's own words."),
+  }),
+  async execute({ when }, runContext) {
+    const ctx = runContext?.context as AgentContext;
+    const resolved = resolveWhen(when, { now: ctx.now, timeZone: ctx.timeZone });
+    if (!resolved.ok) return json({ error: resolved.reason });
+
+    const { turns, more } = await repo.getTurnsBetween(resolved.range.from, resolved.range.to, MAX_TURNS);
+    if (turns.length === 0) {
+      return json({
+        ...describeRange(resolved.range, ctx.timeZone),
+        result: "no record",
+        note: "Nothing was saved for this period. Tell the user you have no record of it. Do not guess.",
+      });
+    }
+    return json({
+      ...describeRange(resolved.range, ctx.timeZone),
+      turns: turns.map((t) => present(t, ctx.timeZone)),
+      ...(more ? { note: `Showing the first ${MAX_TURNS} turns of the period; there are more.` } : {}),
+    });
+  },
+});
+
+export const searchMemory = tool({
+  name: "search_memory",
+  description:
+    "Search the user's past conversations by topic, for example when they ask when they asked about " +
+    'something, or refer to "the CRM tools we shortlisted" or "my Postgres question". Matches words, ' +
+    "best match first. Optionally limit it to a period. Returns the saved questions and answers with their " +
+    'dates and cited sources, or "no record" if nothing matches.',
+  parameters: z.object({
+    query: z.string().describe("A few keywords for the topic, e.g. 'postgres hosting pricing'."),
+    when: z
+      .string()
+      .nullable()
+      .describe("Optional period to search within, in the user's own words, e.g. 'last week'. Null for all time."),
+  }),
+  async execute({ query, when }, runContext) {
+    const ctx = runContext?.context as AgentContext;
+    let range: DateRange | undefined;
+    if (when) {
+      const resolved = resolveWhen(when, { now: ctx.now, timeZone: ctx.timeZone });
+      if (!resolved.ok) return json({ error: resolved.reason });
+      range = resolved.range;
+    }
+
+    const found = await repo.searchTurns(query, range, MAX_TURNS);
+    if (found.length === 0) {
+      return json({
+        result: "no record",
+        ...(range ? describeRange(range, ctx.timeZone) : {}),
+        note: "No saved conversation matches. Tell the user you have no record of it. Do not guess.",
+      });
+    }
+    return json({
+      ...(range ? describeRange(range, ctx.timeZone) : {}),
+      turns: found.map((t) => present(t, ctx.timeZone)),
+    });
+  },
+});
+
+export const memoryTools = [recallByDate, searchMemory];

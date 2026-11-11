@@ -8,6 +8,13 @@
       "when": 1794381153493,
       "tag": "0000_noisy_ikaris",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794388211354,
+      "tag": "0001_sticky_romulus",
+      "breakpoints": true
     }
   ]
 }

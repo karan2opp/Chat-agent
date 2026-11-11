@@ -2,8 +2,10 @@ import { Router } from "express";
 import { ChatIdParam, ChatRequest } from "./chat.schema.js";
 import {
   ChatNotFoundError,
+  collectSources,
   getChatWithTurns,
   listChats,
+  pickTimeZone,
   saveTurn,
   startTurn,
   streamReply,
@@ -42,7 +44,11 @@ chatRouter.post("/chat", async (req, res) => {
 
   let reply = "";
   try {
-    const result = await streamReply(turn.messages, controller.signal);
+    // The clock is the moment the question arrived, the same instant stored as the turn's time.
+    const result = await streamReply(turn.messages, controller.signal, {
+      now: turn.askedAt,
+      timeZone: pickTimeZone(parsed.data.timeZone),
+    });
 
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache");
@@ -60,7 +66,7 @@ chatRouter.post("/chat", async (req, res) => {
     // sees the stream end, the turn is stored and shows up in the chat list.
     if (completed && reply) {
       try {
-        await saveTurn(turn.chatId, parsed.data.message, reply, turn.askedAt);
+        await saveTurn(turn.chatId, parsed.data.message, reply, turn.askedAt, collectSources(result.newItems));
       } catch (err) {
         console.error("could not save turn:", err instanceof Error ? err.message : err);
       }

@@ -1,7 +1,10 @@
 import { run, type AgentInputItem } from "@openai/agents";
 import { agent } from "./chat.agent.js";
+import { isValidTimeZone } from "../memory/date-resolver.js";
+import type { AgentContext } from "../memory/memory.tools.js";
 import * as repo from "./chat.repo.js";
 import type { ChatMessage } from "./chat.schema.js";
+import { collectSources } from "./chat.sources.js";
 
 // How many past turns of a chat are sent back to the model as conversation history.
 const HISTORY_TURNS = 20;
@@ -44,10 +47,19 @@ export async function startTurn(chatId: string | undefined, message: string) {
   return { chatId: id, askedAt, messages: [...history, { role: "user", content: message } as ChatMessage] };
 }
 
-// Starts an agent run and returns the streamed result; the caller decides how to deliver it.
-export function streamReply(messages: ChatMessage[], signal: AbortSignal) {
-  return run(agent, toInput(messages), { stream: true, signal });
+// Falls back to the server's own zone when the client sent none or an unknown one.
+export function pickTimeZone(requested: string | undefined): string {
+  if (requested && isValidTimeZone(requested)) return requested;
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
+
+// Starts an agent run and returns the streamed result; the caller decides how to deliver it.
+// `context` is what the memory tools use to work out dates ("yesterday") in the user's time zone.
+export function streamReply(messages: ChatMessage[], signal: AbortSignal, context: AgentContext) {
+  return run(agent, toInput(messages), { stream: true, signal, context });
+}
+
+export { collectSources };
 
 export const saveTurn = repo.saveTurn;
 

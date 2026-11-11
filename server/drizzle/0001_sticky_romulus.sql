@@ -1,0 +1,2 @@
+ALTER TABLE "turns" ADD COLUMN "sources" jsonb DEFAULT '[]'::jsonb NOT NULL;--> statement-breakpoint
+CREATE INDEX "turns_fts_idx" ON "turns" USING gin (to_tsvector('english', "user_text" || ' ' || "assistant_text"));

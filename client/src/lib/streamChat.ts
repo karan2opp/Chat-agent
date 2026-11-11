@@ -9,7 +9,8 @@ export async function streamChat(
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chatId, message }),
+    // The browser's time zone lets the server work out what "yesterday" means for this user.
+    body: JSON.stringify({ chatId, message, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
     signal,
   });
 
