@@ -172,6 +172,120 @@ body {
 .message.assistant {
   align-self: flex-start;
   background: #f0f0f3;
+  /* Markdown supplies its own paragraphs and line breaks. */
+  white-space: normal;
+  min-width: 0;
+}
+
+/* ---- rendered Markdown inside assistant replies ---- */
+
+.message.assistant > :first-child {
+  margin-top: 0;
+}
+
+.message.assistant > :last-child {
+  margin-bottom: 0;
+}
+
+.message.assistant p,
+.message.assistant ul,
+.message.assistant ol,
+.message.assistant pre,
+.message.assistant blockquote,
+.message.assistant .table-wrap {
+  margin: 0 0 10px;
+}
+
+.message.assistant ul,
+.message.assistant ol {
+  padding-left: 22px;
+}
+
+.message.assistant li + li {
+  margin-top: 4px;
+}
+
+.message.assistant h1,
+.message.assistant h2,
+.message.assistant h3,
+.message.assistant h4 {
+  margin: 14px 0 6px;
+  line-height: 1.3;
+}
+
+.message.assistant h1 {
+  font-size: 1.2em;
+}
+
+.message.assistant h2 {
+  font-size: 1.1em;
+}
+
+.message.assistant h3,
+.message.assistant h4 {
+  font-size: 1em;
+}
+
+.message.assistant a {
+  color: #0a62c9;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-word;
+}
+
+.message.assistant code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: #e4e4ea;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.message.assistant pre {
+  overflow-x: auto;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #e4e4ea;
+}
+
+.message.assistant pre code {
+  padding: 0;
+  background: none;
+}
+
+.message.assistant blockquote {
+  padding-left: 12px;
+  border-left: 3px solid #c8c8d0;
+  color: #55555b;
+}
+
+.message.assistant hr {
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px solid #d2d2d7;
+}
+
+.table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.message.assistant table {
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+
+.message.assistant th,
+.message.assistant td {
+  padding: 6px 10px;
+  border: 1px solid #d2d2d7;
+  text-align: left;
+  vertical-align: top;
+}
+
+.message.assistant th {
+  background: #e8e8ee;
+  font-weight: 600;
 }
 
 .error {

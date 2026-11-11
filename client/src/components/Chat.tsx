@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { getChat } from "../lib/api";
 import { streamChat } from "../lib/streamChat";
+import Markdown from "./Markdown";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -119,7 +120,11 @@ export default function Chat({ chatId: initialChatId, onChatCreated, onTurnSaved
         )}
         {messages.map((m, i) => (
           <div key={i} className={`message ${m.role}`}>
-            {m.content || (streaming && i === messages.length - 1 ? "…" : "")}
+            {m.role === "assistant" && m.content ? (
+              <Markdown text={m.content} />
+            ) : (
+              m.content || (streaming && i === messages.length - 1 ? "…" : "")
+            )}
           </div>
         ))}
         <div ref={bottomRef} />
