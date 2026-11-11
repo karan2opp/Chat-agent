@@ -2,6 +2,8 @@ import { run, type AgentInputItem } from "@openai/agents";
 import { agent } from "./chat.agent.js";
 import { fitRecent } from "../memory/context-window.js";
 import { isValidTimeZone } from "../memory/date-resolver.js";
+import { renderProfile } from "../memory/facts.js";
+import { getActiveFacts } from "../memory/facts.repo.js";
 import { budgets } from "../memory/memory.config.js";
 import type { AgentContext } from "../memory/memory.tools.js";
 import * as repo from "./chat.repo.js";
@@ -48,7 +50,15 @@ export async function startTurn(chatId: string | undefined, message: string) {
     id = await repo.createChat(titleFrom(message));
   }
 
-  return { chatId: id, askedAt, messages: [...history, { role: "user", content: message } as ChatMessage] };
+  // Long-term facts about the user go into the prompt on every turn, within their own budget.
+  const userProfile = renderProfile(await getActiveFacts(), budgets().coreTokens);
+
+  return {
+    chatId: id,
+    askedAt,
+    userProfile,
+    messages: [...history, { role: "user", content: message } as ChatMessage],
+  };
 }
 
 // Falls back to the server's own zone when the client sent none or an unknown one.

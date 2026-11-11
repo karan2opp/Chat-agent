@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../../common/http.js";
 import { enrichAfterTurn } from "../memory/memory.enrich.js";
 import { ChatIdParam, ChatRequest } from "./chat.schema.js";
 import {
@@ -47,7 +48,11 @@ chatRouter.post("/chat", async (req, res) => {
   try {
     // The clock is the moment the question arrived, the same instant stored as the turn's time.
     const timeZone = pickTimeZone(parsed.data.timeZone);
-    const result = await streamReply(turn.messages, controller.signal, { now: turn.askedAt, timeZone });
+    const result = await streamReply(turn.messages, controller.signal, {
+      now: turn.askedAt,
+      timeZone,
+      userProfile: turn.userProfile,
+    });
 
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache");
@@ -88,20 +93,26 @@ chatRouter.post("/chat", async (req, res) => {
   }
 });
 
-chatRouter.get("/chats", async (_req, res) => {
-  res.json(await listChats());
-});
+chatRouter.get(
+  "/chats",
+  asyncHandler(async (_req, res) => {
+    res.json(await listChats());
+  }),
+);
 
-chatRouter.get("/chats/:id", async (req, res) => {
-  const params = ChatIdParam.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: "Invalid chat id" });
-    return;
-  }
-  const found = await getChatWithTurns(params.data.id);
-  if (!found) {
-    res.status(404).json({ error: "Chat not found" });
-    return;
-  }
-  res.json(found);
-});
+chatRouter.get(
+  "/chats/:id",
+  asyncHandler(async (req, res) => {
+    const params = ChatIdParam.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: "Invalid chat id" });
+      return;
+    }
+    const found = await getChatWithTurns(params.data.id);
+    if (!found) {
+      res.status(404).json({ error: "Chat not found" });
+      return;
+    }
+    res.json(found);
+  }),
+);

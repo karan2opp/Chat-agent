@@ -3,11 +3,16 @@ import { generateObject } from "../../common/llm/llm.js";
 import { enqueue } from "../../common/queue.js";
 import type { Turn } from "../chat/chat.table.js";
 import * as claimsRepo from "./claims.repo.js";
+import { FACT_KINDS } from "./fact.table.js";
+import { planFactChanges } from "./facts.js";
+import * as factsRepo from "./facts.repo.js";
 
 // Work done about a turn after its reply has been streamed and saved. The user never waits for
 // any of it. Each step is independent: one failing does not stop the others.
 
-const ExtractedClaims = z.object({
+// One model call reads the turn and returns both things worth remembering from it: checkable
+// facts from the web (claims) and durable facts the user told us about themselves.
+const Extracted = z.object({
   claims: z.array(
     z.object({
       topic: z.string().describe("Short label for what the group of claims is about, e.g. 'CRM tool pricing'."),
@@ -18,44 +23,61 @@ const ExtractedClaims = z.object({
       sourceUrl: z.string().nullable().describe("The cited page this came from, if known."),
     }),
   ),
+  userFacts: z.array(
+    z.object({
+      action: z.enum(["set", "remove"]),
+      kind: z.enum(FACT_KINDS),
+      key: z.string().describe("Stable name: 'name', 'role', 'employer', 'location', 'preference:<topic>', 'project:<name>', 'goal:<topic>'."),
+      value: z.string().describe("The fact in a short phrase. Empty for 'remove'."),
+    }),
+  ),
 });
 
-const CLAIM_INSTRUCTIONS = `You extract checkable facts from an assistant's answer so they can be compared with the web later.
-Extract only concrete, time-sensitive facts that came from the web sources: prices, plan names, versions, release dates, availability, limits, rankings. Skip opinions, advice, explanations and anything the sources do not support.
-Write each claim so it stands alone. Use the same subject and attribute names each time the same thing is stated, and prefer the names in the list of earlier claims when one applies.
-Set sourceUrl only to the page that states that specific claim (it must be one of the listed sources); use null when you are not sure which page it came from.
-If there is nothing concrete to record, return an empty list.`;
+const INSTRUCTIONS = `You read one exchange between a user and an assistant and pull out what is worth remembering.
 
-async function extractClaims(turn: Turn): Promise<void> {
-  // Claims are only recorded for answers that used a web search, which is where checkable,
-  // changing facts come from.
-  if (turn.sources.length === 0) return;
+1. claims: checkable, time-sensitive facts the ASSISTANT stated from the web sources: prices, plan names, versions, release dates, availability, limits, rankings. Skip opinions, advice, explanations and anything the sources do not support. Only extract claims when web sources are listed. Write each claim so it stands alone. Use the same subject and attribute names each time the same thing is stated, preferring the names in the list of earlier claims. Set sourceUrl only to the page that states that specific claim (one of the listed sources), or null when unsure.
 
-  const earlier = await claimsRepo.findClaims(turn.userText, undefined, 40);
-  const known = earlier.map((c) => `- ${c.subject} | ${c.attribute}`);
+2. userFacts: durable facts the USER states about themselves: name, role, employer, location, preferences, goals, habits, and the projects they are building (one short line per project). Not questions, one-off requests, or facts about the world. Reuse the keys of the known facts when the same thing comes up again. Use action "set" for a new or changed fact and "remove" when the user says something is no longer true. Do not repeat a known fact that has not changed.
+
+Return empty lists when there is nothing to record.`;
+
+async function extract(turn: Turn): Promise<void> {
+  const [earlierClaims, knownFacts] = await Promise.all([
+    turn.sources.length > 0 ? claimsRepo.findClaims(turn.userText, undefined, 40) : [],
+    factsRepo.getActiveFacts(),
+  ]);
 
   const input = [
-    `Question: ${turn.userText}`,
-    `Answer: ${turn.assistantText}`,
-    `Sources: ${turn.sources.map((s) => `${s.url} (${s.title})`).join("; ")}`,
-    known.length > 0 ? `Earlier claims (reuse these names):\n${[...new Set(known)].join("\n")}` : "",
+    `User said: ${turn.userText}`,
+    `Assistant answered: ${turn.assistantText}`,
+    turn.sources.length > 0
+      ? `Web sources: ${turn.sources.map((s) => `${s.url} (${s.title})`).join("; ")}`
+      : "Web sources: none",
+    knownFacts.length > 0 ? `Known facts about the user:\n${knownFacts.map((f) => `- ${f.key}: ${f.value}`).join("\n")}` : "",
+    earlierClaims.length > 0
+      ? `Earlier claims (reuse these names):\n${[...new Set(earlierClaims.map((c) => `- ${c.subject} | ${c.attribute}`))].join("\n")}`
+      : "",
   ]
     .filter(Boolean)
     .join("\n\n");
 
-  const { claims } = await generateObject(ExtractedClaims, CLAIM_INSTRUCTIONS, input);
-  await claimsRepo.insertClaims(
-    claims.map((c) => ({
-      turnId: turn.id,
-      topic: c.topic,
-      subject: c.subject,
-      attribute: c.attribute,
-      value: c.value,
-      amount: c.amount,
-      sourceUrl: c.sourceUrl,
-      asOf: turn.askedAt,
-    })),
-  );
+  const result = await generateObject(Extracted, INSTRUCTIONS, input);
+
+  if (turn.sources.length > 0) {
+    await claimsRepo.insertClaims(
+      result.claims.map((c) => ({
+        turnId: turn.id,
+        topic: c.topic,
+        subject: c.subject,
+        attribute: c.attribute,
+        value: c.value,
+        amount: c.amount,
+        sourceUrl: c.sourceUrl,
+        asOf: turn.askedAt,
+      })),
+    );
+  }
+  await factsRepo.applyFactChanges(planFactChanges(knownFacts, result.userFacts), turn.id);
 }
 
 async function step(name: string, fn: () => Promise<void>): Promise<void> {
@@ -69,6 +91,6 @@ async function step(name: string, fn: () => Promise<void>): Promise<void> {
 // Queues the follow-up work for a saved turn. Returns immediately.
 export function enrichAfterTurn(turn: Turn, _timeZone: string): void {
   enqueue("enrich turn", async () => {
-    await step("claims", () => extractClaims(turn));
+    await step("extract claims and profile facts", () => extract(turn));
   });
 }
