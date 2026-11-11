@@ -16,18 +16,16 @@ Rules:
 // The prompt is laid out with the parts that rarely change first and the parts that change every
 // turn last, so providers that cache a repeated prompt prefix can reuse as much of it as possible.
 function instructions({ context }: { context: AgentContext }): string {
-  const now = new Intl.DateTimeFormat("en-GB", {
-    timeZone: context.timeZone,
-    dateStyle: "full",
-    timeStyle: "short",
-  }).format(context.now);
+  // Date only, no time of day: it changes once a day, so the start of the prompt stays identical
+  // from turn to turn and can be cached. Tools that need the exact time get it from the context.
+  const today = new Intl.DateTimeFormat("en-GB", { timeZone: context.timeZone, dateStyle: "full" }).format(context.now);
 
   return [
     RULES,
     context.userProfile && `What you know about the user (long-term memory):\n${context.userProfile}`,
     context.chatSummary &&
       `Summary of the earlier part of this conversation (older turns that no longer fit below):\n${context.chatSummary}`,
-    `The current date and time is ${now} (${context.timeZone}).`,
+    `Today is ${today} (time zone ${context.timeZone}).`,
   ]
     .filter(Boolean)
     .join("\n\n");
