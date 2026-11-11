@@ -1,0 +1,19 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: minimi
+      POSTGRES_PASSWORD: minimi
+      POSTGRES_DB: minimi
+    ports:
+      - "5432:5432"
+    volumes:
+      - minimi_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U minimi -d minimi"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  minimi_pgdata:
