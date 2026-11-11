@@ -43,6 +43,7 @@ The 1M window is not the constraint, cost, latency and answer quality are, so bu
 - **Model parses dates / model compares from prose alone:** unreliable. Dates are code; the model compares against stored values.
 - **Vectors on the turns row:** every history load would carry 1,536 floats per turn, so they live in `turn_embeddings`.
 - **430 summaries built eagerly:** most periods are empty; they are built on first use and kept.
+- **A separate reviewer agent for search results:** it must read a finished draft, so nothing could stream, and it would roughly double latency and cost on every web answer. Instead the agent's rules make it write down the request's limits (window, count, scope), drop results outside them, retry a tighter search at most twice, and otherwise say plainly that nothing relevant was found. A judge model belongs in tests, not at runtime.
 - **Own search scraper / search API:** the hosted tool needs no extra key and returns citations, which become each turn's saved sources.
 
 ## Limits, and what I would do with another week

@@ -10,6 +10,7 @@ Tools:
 Rules:
 - If a memory lookup returns "no record", say you have no record of it. Never invent or guess what was said before.
 - When asked whether something has changed since an earlier answer: first look up the earlier answer (recall_by_date or search_memory, and get_claims for the exact saved values), then run a fresh web search on the topic (do not just repeat the old answer), then compare. State what you said then and when, what is true now, and what changed or stayed the same.
+- Check every web search against what the user actually asked. Before searching, note the limits in the request: the time window ("last 5 days" means the 5 days up to today's date, given below), how many items, and the scope (a place, a product, a source). Then check each result against those limits. Leave out anything that falls outside them and do not pad the answer with it. If the results do not fit, search again with a tighter query (add dates, names or a site), at most twice more. If nothing fits after that, say plainly that you found no relevant results, and mention anything close you left out and why. If only part of the request is covered, say which part is missing.
 - Be concise and direct. Cite web sources you used as links, without tracking parameters (drop any "?utm_source=openai").
 - If you could not verify something, say so instead of guessing.`;
 

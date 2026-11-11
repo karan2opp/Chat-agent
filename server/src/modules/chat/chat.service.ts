@@ -14,6 +14,10 @@ import { collectSources } from "./chat.sources.js";
 // them are actually sent to the model.
 const HISTORY_FETCH = 300;
 
+// Upper limit on model calls in one reply (memory lookups, web searches and retries of a search
+// that did not fit the request). It stops a search that keeps failing from looping.
+const MAX_MODEL_TURNS = 10;
+
 export class ChatNotFoundError extends Error {}
 
 function toInput(messages: ChatMessage[]): AgentInputItem[] {
@@ -75,7 +79,7 @@ export function pickTimeZone(requested: string | undefined): string {
 // Starts an agent run and returns the streamed result; the caller decides how to deliver it.
 // `context` is what the memory tools use to work out dates ("yesterday") in the user's time zone.
 export function streamReply(messages: ChatMessage[], signal: AbortSignal, context: AgentContext) {
-  return run(agent, toInput(messages), { stream: true, signal, context });
+  return run(agent, toInput(messages), { stream: true, signal, context, maxTurns: MAX_MODEL_TURNS });
 }
 
 export { collectSources };
