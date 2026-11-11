@@ -1,13 +1,16 @@
 import { run, type AgentInputItem } from "@openai/agents";
 import { agent } from "./chat.agent.js";
+import { fitRecent } from "../memory/context-window.js";
 import { isValidTimeZone } from "../memory/date-resolver.js";
+import { budgets } from "../memory/memory.config.js";
 import type { AgentContext } from "../memory/memory.tools.js";
 import * as repo from "./chat.repo.js";
 import type { ChatMessage } from "./chat.schema.js";
 import { collectSources } from "./chat.sources.js";
 
-// How many past turns of a chat are sent back to the model as conversation history.
-const HISTORY_TURNS = 20;
+// Most turns read from the database when building history; the token budget decides how many of
+// them are actually sent to the model.
+const HISTORY_FETCH = 300;
 
 export class ChatNotFoundError extends Error {}
 
@@ -36,7 +39,8 @@ export async function startTurn(chatId: string | undefined, message: string) {
   let id = chatId;
   if (id) {
     if (!(await repo.chatExists(id))) throw new ChatNotFoundError();
-    for (const t of await repo.getRecentTurns(id, HISTORY_TURNS)) {
+    const { kept } = fitRecent(await repo.getRecentTurns(id, HISTORY_FETCH), budgets().recentTokens);
+    for (const t of kept) {
       history.push({ role: "user", content: t.userText });
       history.push({ role: "assistant", content: t.assistantText });
     }

@@ -7,6 +7,10 @@ import * as repo from "./memory.repo.js";
 export type AgentContext = {
   timeZone: string;
   now: Date;
+  // Long-term facts about the user, already rendered and within budget.
+  userProfile?: string;
+  // Summary of this chat's turns that no longer fit in the recent window.
+  chatSummary?: string;
 };
 
 const MAX_TURNS = 20;
