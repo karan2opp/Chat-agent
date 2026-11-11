@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { enrichAfterTurn } from "../memory/memory.enrich.js";
 import { ChatIdParam, ChatRequest } from "./chat.schema.js";
 import {
   ChatNotFoundError,
@@ -45,10 +46,8 @@ chatRouter.post("/chat", async (req, res) => {
   let reply = "";
   try {
     // The clock is the moment the question arrived, the same instant stored as the turn's time.
-    const result = await streamReply(turn.messages, controller.signal, {
-      now: turn.askedAt,
-      timeZone: pickTimeZone(parsed.data.timeZone),
-    });
+    const timeZone = pickTimeZone(parsed.data.timeZone);
+    const result = await streamReply(turn.messages, controller.signal, { now: turn.askedAt, timeZone });
 
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache");
@@ -64,14 +63,17 @@ chatRouter.post("/chat", async (req, res) => {
 
     // All text has already been sent. Saving before closing means that by the time the client
     // sees the stream end, the turn is stored and shows up in the chat list.
+    let saved;
     if (completed && reply) {
       try {
-        await saveTurn(turn.chatId, parsed.data.message, reply, turn.askedAt, collectSources(result.newItems));
+        saved = await saveTurn(turn.chatId, parsed.data.message, reply, turn.askedAt, collectSources(result.newItems));
       } catch (err) {
         console.error("could not save turn:", err instanceof Error ? err.message : err);
       }
     }
     res.end();
+    // Memory upkeep (claims, summaries, ...) starts only after the reply has been delivered.
+    if (saved) enrichAfterTurn(saved, timeZone);
   } catch (err) {
     if (controller.signal.aborted) return;
     const message = err instanceof Error ? err.message : "Unknown error";

@@ -15,6 +15,13 @@
       "when": 1794388211354,
       "tag": "0001_sticky_romulus",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794397464639,
+      "tag": "0002_rich_living_lightning",
+      "breakpoints": true
     }
   ]
 }

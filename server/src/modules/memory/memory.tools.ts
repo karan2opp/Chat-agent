@@ -1,6 +1,8 @@
 import { tool } from "@openai/agents";
 import { z } from "zod";
 import { resolveWhen, type DateRange } from "./date-resolver.js";
+import { buildTimelines } from "./claims.js";
+import * as claimsRepo from "./claims.repo.js";
 import * as repo from "./memory.repo.js";
 
 // Per-request data the tools need, passed to the agent run as its context.
@@ -117,4 +119,56 @@ export const searchMemory = tool({
   },
 });
 
-export const memoryTools = [recallByDate, searchMemory];
+const MAX_CLAIMS = 60;
+
+export const getClaims = tool({
+  name: "get_claims",
+  description:
+    "Get the exact facts (prices, plans, versions, limits...) you stated in past answers, as saved records with the " +
+    "date each was stated and its source. Use it before checking whether something has changed: it gives the old " +
+    "values to compare against fresh web results. Look up by topic, by period, or both. Each item lists a history " +
+    "of values for one thing, oldest first, and marks where the value changed.",
+  parameters: z.object({
+    topic: z.string().nullable().describe("Keywords for what the facts are about, e.g. 'CRM tool pricing'. Null for any topic."),
+    when: z
+      .string()
+      .nullable()
+      .describe("Period the facts were stated in, in the user's own words, e.g. '3 November' or 'last Tuesday'. Null for any time."),
+  }),
+  async execute({ topic, when }, runContext) {
+    const ctx = runContext?.context as AgentContext;
+    if (!topic && !when) return json({ error: "Give a topic, a period, or both." });
+
+    let range: DateRange | undefined;
+    if (when) {
+      const resolved = resolveWhen(when, { now: ctx.now, timeZone: ctx.timeZone });
+      if (!resolved.ok) return json({ error: resolved.reason });
+      range = resolved.range;
+    }
+
+    const rows = await claimsRepo.findClaims(topic, range, MAX_CLAIMS);
+    if (rows.length === 0) {
+      return json({
+        result: "no record",
+        ...(range ? describeRange(range, ctx.timeZone) : {}),
+        note: "No saved facts match. Fall back to recall_by_date or search_memory for the earlier answer.",
+      });
+    }
+    return json({
+      ...(range ? describeRange(range, ctx.timeZone) : {}),
+      facts: buildTimelines(rows).map((t) => ({
+        topic: t.topic,
+        subject: t.subject,
+        attribute: t.attribute,
+        history: t.entries.map((e) => ({
+          value: e.value,
+          statedOn: formatLocal(e.asOf, ctx.timeZone),
+          source: e.sourceUrl,
+          changedFromPrevious: e.changedFromPrevious,
+        })),
+      })),
+    });
+  },
+});
+
+export const memoryTools = [recallByDate, searchMemory, getClaims];

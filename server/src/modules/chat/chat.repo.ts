@@ -31,10 +31,11 @@ export async function saveTurn(
   assistantText: string,
   askedAt: Date,
   sources: TurnSource[],
-): Promise<void> {
-  await db.transaction(async (tx) => {
-    await tx.insert(turns).values({ chatId, userText, assistantText, askedAt, sources });
+): Promise<Turn> {
+  return db.transaction(async (tx) => {
+    const [turn] = await tx.insert(turns).values({ chatId, userText, assistantText, askedAt, sources }).returning();
     await tx.update(chats).set({ updatedAt: new Date() }).where(eq(chats.id, chatId));
+    return turn;
   });
 }
 
