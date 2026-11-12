@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { getChat } from "../lib/api";
 import { streamChat } from "../lib/streamChat";
 import Markdown from "./Markdown";
+import NinjaBuddy, { Shuriken, type NinjaMood } from "./NinjaBuddy";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -110,6 +111,18 @@ export default function Chat({ chatId: initialChatId, onChatCreated, onTurnSaved
     }
   }
 
+  // Waiting for the first words is "thinking"; once text streams in it is "typing".
+  const lastMessage = messages[messages.length - 1];
+  const mood: NinjaMood = streaming
+    ? lastMessage?.content
+      ? "typing"
+      : "thinking"
+    : error
+      ? "oops"
+      : input.trim()
+        ? "listening"
+        : "idle";
+
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -122,7 +135,12 @@ export default function Chat({ chatId: initialChatId, onChatCreated, onTurnSaved
       <div className="messages">
         {loading && <p className="empty">Loading chat…</p>}
         {!loading && messages.length === 0 && (
-          <p className="empty">Ask me anything. I can search the web.</p>
+          <p className="empty">
+            Ask me anything. I can search the web.
+            <span className="empty-ko" lang="ko">
+              무엇이든 물어보세요
+            </span>
+          </p>
         )}
         {messages.map((m, i) => (
           <div key={i} className={`message ${m.role}`}>
@@ -148,6 +166,7 @@ export default function Chat({ chatId: initialChatId, onChatCreated, onTurnSaved
       )}
 
       <div className="composer">
+        <NinjaBuddy mood={mood} />
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -155,8 +174,9 @@ export default function Chat({ chatId: initialChatId, onChatCreated, onTurnSaved
           placeholder="Type a message (Enter to send, Shift+Enter for a new line)"
           rows={2}
         />
-        <button onClick={() => void send()} disabled={streaming || loading || !input.trim()}>
-          Send
+        <button className="send" onClick={() => void send()} disabled={streaming || loading || !input.trim()}>
+          <Shuriken spinning={streaming} />
+          <span>Send</span>
         </button>
       </div>
     </div>

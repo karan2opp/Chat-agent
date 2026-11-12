@@ -1,4 +1,5 @@
 import type { ChatSummary } from "../lib/api";
+import { Shuriken } from "./NinjaBuddy";
 
 type Props = {
   chats: ChatSummary[];
@@ -20,7 +21,13 @@ export default function Sidebar({ chats, activeId, onSelect, onNew }: Props) {
   return (
     <aside className="sidebar">
       <div className="sidebar-top">
-        <span className="brand">minimi</span>
+        <span className="brand">
+          <Shuriken />
+          minimi
+          <span className="brand-ko" lang="ko">
+            미니미
+          </span>
+        </span>
         <button className="new-chat" onClick={onNew}>
           + New chat
         </button>
