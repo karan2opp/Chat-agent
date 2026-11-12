@@ -37,7 +37,13 @@ function retrySettings(): NonNullable<ModelSettings["retry"]> {
 const REPLY_TIMEOUT_MS = 180_000;
 const BACKGROUND_TIMEOUT_MS = 90_000;
 
-export const replyModelSettings = (): ModelSettings => ({ timeoutMs: REPLY_TIMEOUT_MS, retry: retrySettings() });
+// Replies are asked to be concise at the model level; the prompt's length guidance alone was not
+// enough after a web search, where the model tended to report everything it found.
+export const replyModelSettings = (): ModelSettings => ({
+  timeoutMs: REPLY_TIMEOUT_MS,
+  retry: retrySettings(),
+  text: { verbosity: "low" },
+});
 export const backgroundModelSettings = (): ModelSettings => ({
   timeoutMs: BACKGROUND_TIMEOUT_MS,
   retry: retrySettings(),
