@@ -840,11 +840,50 @@ body {
   }
 }
 
-/* Cartwheel: rolls to the other end of the box; the number of turns and the direction are set
-   from script to match the distance. */
-.ninja[data-act="cartwheel"] .ninja-figure {
-  transform-origin: center;
-  animation: roll var(--roll-ms) ease-in-out;
+/* Cartwheel: stands up with arms rising out and legs apart, wheels across the box like a star
+   around his middle (turns and direction set from script to match the distance), lifting a little
+   while upside down so his head clears the box, then stands with arms out before sitting. */
+.ninja-star {
+  transform-box: view-box;
+  transform-origin: 40px 42px;
+  animation: roll var(--roll-ms) linear var(--pose-ms) both;
+}
+
+.ninja-star-arm,
+.ninja-star-leg {
+  transform-box: view-box;
+  animation: var(--pose-ms) ease-out both;
+}
+
+/* The fixed angle of each limb is a rotate() with its own centre; measured against the drawing
+   rather than the limb's box, so the rule for animated parts above does not shift it. */
+.ninja-art .ninja-pose {
+  transform-box: view-box;
+  transform-origin: 0 0;
+}
+
+.ninja-star-arm-left {
+  transform-origin: 31px 49px;
+  animation-name: raise-left;
+}
+
+.ninja-star-arm-right {
+  transform-origin: 49px 49px;
+  animation-name: raise-right;
+}
+
+.ninja-star-leg-left {
+  transform-origin: 36px 59px;
+  animation-name: spread-left;
+}
+
+.ninja-star-leg-right {
+  transform-origin: 44px 59px;
+  animation-name: spread-right;
+}
+
+.ninja[data-act="cartwheel"] .ninja-mover {
+  animation: wheel-lift var(--turn-ms) ease-in-out var(--pose-ms) var(--turns);
 }
 
 @keyframes roll {
@@ -853,6 +892,52 @@ body {
   }
   to {
     transform: rotate(var(--spin));
+  }
+}
+
+@keyframes raise-left {
+  from {
+    transform: rotate(-80deg);
+  }
+  to {
+    transform: rotate(0);
+  }
+}
+
+@keyframes raise-right {
+  from {
+    transform: rotate(80deg);
+  }
+  to {
+    transform: rotate(0);
+  }
+}
+
+@keyframes spread-left {
+  from {
+    transform: rotate(-20deg);
+  }
+  to {
+    transform: rotate(0);
+  }
+}
+
+@keyframes spread-right {
+  from {
+    transform: rotate(20deg);
+  }
+  to {
+    transform: rotate(0);
+  }
+}
+
+@keyframes wheel-lift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
   }
 }
 
