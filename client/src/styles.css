@@ -1,25 +1,24 @@
-/* Ninja theme with a light Korean touch: night-ink panels, a hanji-paper chat area, and accents
-   from dancheong (the painted colours of Korean temple eaves): red, jade, gold and blue. */
+/* Ninja theme: soft-black panels, red accents, jade links and a gold headband plate. */
 :root {
-  --ink: #1d1f2d;
-  --ink-2: #262a3d;
-  --ink-3: #31354b;
-  --ink-text: #ece6d8;
-  --ink-muted: #9b97a8;
+  color-scheme: dark;
 
-  --hanji: #f6f1e6;
-  --paper: #fffdf8;
-  --line: #e3dac8;
-  --text: #24242c;
-  --muted: #8a8373;
+  --bg: #16171c;
+  --bg-sidebar: #101115;
+  --surface: #1e1f26;
+  --raised: #2a2c36;
+  --line: #2f313b;
+  --line-strong: #3a3d49;
+  --text: #e7e4dd;
+  --muted: #8d8b95;
 
-  --red: #c8372d;
-  --red-dark: #a52d25;
-  --jade: #2f7d74;
+  --red: #d0453a;
+  --red-dark: #b0362d;
+  --jade: #5fb3a8;
   --gold: #e3b448;
-  --blue: #2b4a8b;
+  --blue: #4a6bb5;
 
-  --ninja-suit: #2a2d40;
+  --ninja-suit: #3b4063;
+  --ninja-foot: #2b2f48;
   --ninja-face: #ffe3c8;
   --ninja-blush: #ff8fa3;
 
@@ -32,8 +31,8 @@
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Malgun Gothic", sans-serif;
-  background: var(--hanji);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
   color: var(--text);
 }
 
@@ -43,15 +42,15 @@ body {
   height: 100vh;
 }
 
-/* ---- sidebar: the night ---- */
+/* ---- sidebar ---- */
 
 .sidebar {
   position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: linear-gradient(180deg, var(--ink) 0%, var(--ink-2) 100%);
-  color: var(--ink-text);
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--line);
 }
 
 /* A crescent moon in the corner. */
@@ -64,7 +63,7 @@ body {
   height: 22px;
   border-radius: 50%;
   box-shadow: inset -6px 3px 0 0 #f3e3b0;
-  filter: drop-shadow(0 0 6px rgba(243, 227, 176, 0.45));
+  filter: drop-shadow(0 0 6px rgba(243, 227, 176, 0.4));
   pointer-events: none;
 }
 
@@ -89,12 +88,6 @@ body {
   width: 20px;
   height: 20px;
   fill: var(--red);
-}
-
-.brand-ko {
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--gold);
 }
 
 .new-chat {
@@ -125,7 +118,7 @@ body {
 
 .chat-list-empty {
   margin: 16px 8px;
-  color: var(--ink-muted);
+  color: var(--muted);
   font-size: 14px;
 }
 
@@ -146,11 +139,11 @@ body {
 }
 
 .chat-item:hover {
-  background: var(--ink-3);
+  background: var(--surface);
 }
 
 .chat-item.active {
-  background: var(--ink-3);
+  background: var(--raised);
   border-left-color: var(--red);
 }
 
@@ -163,20 +156,17 @@ body {
 
 .chat-item-date {
   font-size: 12px;
-  color: var(--ink-muted);
+  color: var(--muted);
 }
 
-/* ---- main column: hanji paper ---- */
+/* ---- main column ---- */
 
 .main {
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  background-color: var(--hanji);
-  /* Faint fibres, like mulberry paper. */
-  background-image: radial-gradient(rgba(140, 115, 70, 0.07) 1px, transparent 1px);
-  background-size: 7px 7px;
+  background: var(--bg);
 }
 
 .main-header {
@@ -184,27 +174,19 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px 16px;
-  background: var(--paper);
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
 }
 
-/* A thin stripe in dancheong colours: blue, red, yellow, jade and ink. */
+/* A thin red line under the header, like a headband. */
 .main-header::after {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
-  height: 4px;
-  background: repeating-linear-gradient(
-    90deg,
-    var(--blue) 0 14px,
-    var(--red) 14px 28px,
-    var(--gold) 28px 42px,
-    var(--jade) 42px 56px,
-    var(--ink) 56px 70px
-  );
-  opacity: 0.9;
+  bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--red) 0%, rgba(208, 69, 58, 0) 60%);
 }
 
 .main-title {
@@ -231,8 +213,7 @@ body {
 .messages {
   flex: 1;
   overflow-y: auto;
-  /* Room at the bottom so the ninja sitting on the message box never covers the last reply. */
-  padding: 20px 20px 72px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -246,14 +227,6 @@ body {
   font-size: 17px;
 }
 
-.empty-ko {
-  display: block;
-  margin-top: 6px;
-  font-size: 14px;
-  color: var(--red);
-  opacity: 0.8;
-}
-
 .message {
   max-width: 85%;
   padding: 10px 14px;
@@ -265,8 +238,8 @@ body {
 .message.user {
   align-self: flex-end;
   border-radius: 16px 16px 4px 16px;
-  background: var(--ink-2);
-  color: #f8f4ea;
+  background: var(--raised);
+  color: var(--text);
 }
 
 .message.assistant {
@@ -274,8 +247,7 @@ body {
   border: 1px solid var(--line);
   border-left: 3px solid var(--red);
   border-radius: 4px 16px 16px 16px;
-  background: var(--paper);
-  box-shadow: 0 1px 2px rgba(60, 45, 20, 0.05);
+  background: var(--surface);
   /* Markdown supplies its own paragraphs and line breaks. */
   white-space: normal;
   min-width: 0;
@@ -334,6 +306,10 @@ body {
   font-size: 1em;
 }
 
+.message.assistant strong {
+  color: #fff;
+}
+
 .message.assistant a {
   color: var(--jade);
   text-decoration: underline;
@@ -344,7 +320,7 @@ body {
 .message.assistant code {
   padding: 1px 5px;
   border-radius: 5px;
-  background: #f1eadb;
+  background: var(--raised);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.9em;
 }
@@ -353,7 +329,8 @@ body {
   overflow-x: auto;
   padding: 10px 12px;
   border-radius: 8px;
-  background: #f1eadb;
+  background: #121318;
+  border: 1px solid var(--line);
 }
 
 .message.assistant pre code {
@@ -364,7 +341,7 @@ body {
 .message.assistant blockquote {
   padding-left: 12px;
   border-left: 3px solid var(--jade);
-  color: #55534c;
+  color: #b9b6ae;
 }
 
 .message.assistant hr {
@@ -386,23 +363,23 @@ body {
 .message.assistant th,
 .message.assistant td {
   padding: 6px 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   text-align: left;
   vertical-align: top;
 }
 
 .message.assistant th {
-  background: #f1eadb;
+  background: var(--raised);
   font-weight: 600;
 }
 
 .error {
   margin: 0 20px 8px;
   padding: 8px 12px;
-  border: 1px solid #efc4bf;
+  border: 1px solid #5a2a26;
   border-radius: 10px;
-  background: #fbeae7;
-  color: var(--red-dark);
+  background: #2b1715;
+  color: #ff9e93;
   font-size: 14px;
   display: flex;
   align-items: center;
@@ -413,10 +390,10 @@ body {
 .error button {
   flex: none;
   padding: 4px 12px;
-  border: 1px solid var(--red-dark);
+  border: 1px solid #ff9e93;
   border-radius: 6px;
   background: transparent;
-  color: var(--red-dark);
+  color: #ff9e93;
   font: inherit;
   cursor: pointer;
 }
@@ -428,29 +405,34 @@ body {
 
 /* ---- message box ---- */
 
+/* The space above the input is the ninja's seat, so it never sits on top of a message. */
 .composer {
   position: relative;
   display: flex;
   gap: 8px;
-  padding: 14px 20px 20px;
+  padding: 62px 20px 20px;
 }
 
 .composer textarea {
   flex: 1;
   resize: none;
   padding: 10px 12px;
-  border: 1.5px solid var(--line);
+  border: 1.5px solid var(--line-strong);
   border-radius: 12px;
-  background: var(--paper);
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
+.composer textarea::placeholder {
+  color: var(--muted);
+}
+
 .composer textarea:focus {
   border-color: var(--jade);
-  box-shadow: 0 0 0 3px rgba(47, 125, 116, 0.15);
+  box-shadow: 0 0 0 3px rgba(95, 179, 168, 0.15);
 }
 
 .composer .send {
@@ -473,14 +455,15 @@ body {
 }
 
 .composer .send:disabled {
-  background: #ddb3ae;
+  background: #4a2523;
+  color: #a98783;
   cursor: not-allowed;
 }
 
 .send .shuriken {
   width: 16px;
   height: 16px;
-  fill: #fff;
+  fill: currentColor;
 }
 
 .shuriken-hole {
@@ -488,11 +471,11 @@ body {
 }
 
 .brand .shuriken-hole {
-  fill: var(--ink);
+  fill: var(--bg-sidebar);
 }
 
 .send:disabled .shuriken-hole {
-  fill: #ddb3ae;
+  fill: #4a2523;
 }
 
 .shuriken.spinning {
@@ -510,7 +493,7 @@ body {
 /* Sits cross-legged on the top edge of the message box, sinking into the border a little. */
 .ninja {
   position: absolute;
-  top: -50px;
+  top: -2px;
   left: 30px;
   z-index: 2;
   display: flex;
@@ -533,7 +516,7 @@ body {
 }
 
 .ninja-foot {
-  fill: #1c1e2c;
+  fill: var(--ninja-foot);
 }
 
 .ninja-belt,
@@ -729,21 +712,18 @@ body {
 
 /* Speech bubble next to the ninja's head. */
 .ninja-status {
-  margin: 2px 0 0 6px;
+  margin: 8px 0 0 6px;
 }
 
 .ninja-bubble {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: 5px 11px 6px;
-  border: 1.5px solid var(--ink-2);
+  padding: 6px 12px;
+  border: 1.5px solid var(--line-strong);
   border-radius: 12px;
-  background: var(--paper);
+  background: var(--raised);
   font-family: var(--font-cute);
   white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(29, 31, 45, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
   animation: pop 0.25s ease-out;
 }
 
@@ -752,31 +732,26 @@ body {
 .ninja-bubble::after {
   content: "";
   position: absolute;
-  top: 12px;
+  top: 10px;
   border-style: solid;
 }
 
 .ninja-bubble::before {
   left: -8px;
   border-width: 5px 8px 5px 0;
-  border-color: transparent var(--ink-2) transparent transparent;
+  border-color: transparent var(--line-strong) transparent transparent;
 }
 
 .ninja-bubble::after {
   left: -5.5px;
   border-width: 4px 6px 4px 0;
-  border-color: transparent var(--paper) transparent transparent;
+  border-color: transparent var(--raised) transparent transparent;
 }
 
 .ninja-bubble-text {
   font-size: 13px;
   font-weight: 700;
-  color: var(--ink-2);
-}
-
-.ninja-bubble-ko {
-  font-size: 11px;
-  color: var(--red);
+  color: var(--text);
 }
 
 .ninja[data-mood="oops"] .ninja-bubble {

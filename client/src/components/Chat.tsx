@@ -135,12 +135,7 @@ export default function Chat({ chatId: initialChatId, onChatCreated, onTurnSaved
       <div className="messages">
         {loading && <p className="empty">Loading chat…</p>}
         {!loading && messages.length === 0 && (
-          <p className="empty">
-            Ask me anything. I can search the web.
-            <span className="empty-ko" lang="ko">
-              무엇이든 물어보세요
-            </span>
-          </p>
+          <p className="empty">Ask me anything. I can search the web.</p>
         )}
         {messages.map((m, i) => (
           <div key={i} className={`message ${m.role}`}>

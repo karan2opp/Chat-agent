@@ -24,9 +24,6 @@ export default function Sidebar({ chats, activeId, onSelect, onNew }: Props) {
         <span className="brand">
           <Shuriken />
           minimi
-          <span className="brand-ko" lang="ko">
-            미니미
-          </span>
         </span>
         <button className="new-chat" onClick={onNew}>
           + New chat

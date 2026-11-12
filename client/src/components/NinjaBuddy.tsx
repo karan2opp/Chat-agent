@@ -2,12 +2,12 @@
 
 export type NinjaMood = "idle" | "listening" | "thinking" | "typing" | "oops";
 
-// What the speech bubble says, with a Korean subtitle.
-const LABELS: Record<Exclude<NinjaMood, "idle">, { text: string; ko: string; dots: boolean }> = {
-  listening: { text: "Listening", ko: "듣는 중", dots: true },
-  thinking: { text: "Thinking", ko: "생각 중", dots: true },
-  typing: { text: "Typing", ko: "입력 중", dots: true },
-  oops: { text: "Oops, that failed", ko: "앗!", dots: false },
+// What the speech bubble says.
+const LABELS: Record<Exclude<NinjaMood, "idle">, { text: string; dots: boolean }> = {
+  listening: { text: "Listening", dots: true },
+  thinking: { text: "Thinking", dots: true },
+  typing: { text: "Typing", dots: true },
+  oops: { text: "Oops, that failed", dots: false },
 };
 
 export default function NinjaBuddy({ mood }: { mood: NinjaMood }) {
@@ -84,9 +84,6 @@ export default function NinjaBuddy({ mood }: { mood: NinjaMood }) {
                   <i />
                 </span>
               )}
-            </span>
-            <span className="ninja-bubble-ko" lang="ko">
-              {label.ko}
             </span>
           </div>
         )}
