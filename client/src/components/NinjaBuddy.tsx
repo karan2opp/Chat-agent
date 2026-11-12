@@ -190,6 +190,49 @@ const LEAVES = [
 
 const vars = (v: Record<string, string>) => v as CSSProperties;
 
+// The ninja seen from the side, facing right, for walking (flipped to walk left). The far arm and
+// leg are drawn behind the body in a darker shade; arms and legs swing in opposite pairs.
+function SideView() {
+  return (
+    <g className="ninja-figure ninja-side">
+      <g className="ninja-tails">
+        <path d="M20 21 q-9 -3 -15 2 q7 1 14 2 z" />
+        <path d="M20 23 q-8 3 -12 10 q6 -4 12 -6 z" />
+      </g>
+
+      <ellipse cx="40.5" cy="55" rx="3.2" ry="7" className="ninja-far ninja-arm-far" />
+      <g className="ninja-far ninja-leg-far">
+        <rect x="37.2" y="58" width="6.5" height="11" rx="3.2" />
+        <ellipse cx="42" cy="69.5" rx="4.6" ry="2.4" />
+      </g>
+
+      <rect x="32.5" y="45" width="16" height="17" rx="8" className="ninja-suit" />
+      <rect x="32.5" y="54" width="16" height="3.5" className="ninja-belt" />
+
+      <g className="ninja-leg-near">
+        <rect x="37.2" y="58" width="6.5" height="11" rx="3.2" className="ninja-suit" />
+        <ellipse cx="42" cy="69.5" rx="4.6" ry="2.4" className="ninja-foot" />
+      </g>
+
+      <g className="ninja-head">
+        <circle cx="40" cy="30" r="22" className="ninja-suit" />
+        <rect x="14" y="16" width="52" height="6" clipPath="url(#ninja-head-clip)" className="ninja-band" />
+        <circle cx="18.5" cy="21.5" r="2.6" className="ninja-band" />
+        <rect x="48" y="15.5" width="9" height="8" rx="1.8" className="ninja-plate" />
+        <circle cx="52.5" cy="19.5" r="1.8" className="ninja-plate-mark" />
+        <ellipse cx="52" cy="33" rx="12" ry="8.5" clipPath="url(#ninja-head-clip)" className="ninja-face" />
+        <ellipse cx="57" cy="37.5" rx="2.6" ry="1.4" className="ninja-blush" />
+        <g className="ninja-eyes">
+          <ellipse cx="54.5" cy="33" rx="2.6" ry="3.2" />
+          <circle cx="55.4" cy="31.7" r="0.9" className="ninja-shine" />
+        </g>
+      </g>
+
+      <ellipse cx="40.5" cy="55" rx="3.4" ry="7" className="ninja-suit ninja-arm-near" />
+    </g>
+  );
+}
+
 export default function NinjaBuddy({ mood }: { mood: NinjaMood }) {
   const ref = useRef<HTMLDivElement>(null);
   const edges = useEdges(ref);
@@ -200,7 +243,8 @@ export default function NinjaBuddy({ mood }: { mood: NinjaMood }) {
   );
 
   const label = mood === "idle" ? null : LABELS[mood];
-  const standing = act === "walk" || act === "cartwheel";
+  // On his feet (rather than sitting) for a cartwheel; walking uses the side view.
+  const standing = act === "cartwheel";
   const eyesClosed = act === "sleep" || act === "yawn";
   const vanishing = act === "vanish-out" || act === "vanish-in";
 
@@ -240,75 +284,79 @@ export default function NinjaBuddy({ mood }: { mood: NinjaMood }) {
             </filter>
           </defs>
 
-          <g className="ninja-figure">
-            {/* Headband tails, behind the head so they flutter out from the knot. */}
-            <g className="ninja-tails">
-              <path d="M60 21 q9 -3 15 2 q-7 1 -14 2 z" />
-              <path d="M60 23 q8 3 12 10 q-6 -4 -12 -6 z" />
-            </g>
-
-            <g className="ninja-body">
-              <rect x="26" y="45" width="28" height="20" rx="10" className="ninja-suit" />
-              <rect x="26" y="55" width="28" height="4" className="ninja-belt" />
-              <ellipse cx="25.5" cy="54" rx="4" ry="6.5" className="ninja-suit ninja-arm ninja-arm-left" />
-              <ellipse cx="54.5" cy="54" rx="4" ry="6.5" className="ninja-suit ninja-arm ninja-arm-right" />
-            </g>
-
-            {standing ? (
-              // On his feet, for walking and cartwheels.
-              <g className="ninja-legs-standing">
-                <g className="ninja-step ninja-step-left">
-                  <rect x="31.5" y="62" width="6.5" height="7" rx="3.2" className="ninja-suit" />
-                  <ellipse cx="34" cy="69.5" rx="4.4" ry="2.4" className="ninja-foot" />
-                </g>
-                <g className="ninja-step ninja-step-right">
-                  <rect x="42" y="62" width="6.5" height="7" rx="3.2" className="ninja-suit" />
-                  <ellipse cx="46" cy="69.5" rx="4.4" ry="2.4" className="ninja-foot" />
-                </g>
+          {act === "walk" ? (
+            <SideView />
+          ) : (
+            <g className="ninja-figure">
+              {/* Headband tails, behind the head so they flutter out from the knot. */}
+              <g className="ninja-tails">
+                <path d="M60 21 q9 -3 15 2 q-7 1 -14 2 z" />
+                <path d="M60 23 q8 3 12 10 q-6 -4 -12 -6 z" />
               </g>
-            ) : (
-              // Sitting cross-legged on the edge of the message box: knees out, feet tucked in.
-              <g className="ninja-legs">
-                <ellipse cx="27" cy="64.5" rx="10.5" ry="5" className="ninja-suit" />
-                <ellipse cx="53" cy="64.5" rx="10.5" ry="5" className="ninja-suit" />
-                <ellipse cx="36" cy="66.5" rx="5.6" ry="3.2" className="ninja-foot ninja-foot-left" />
-                <ellipse cx="44" cy="66.5" rx="5.6" ry="3.2" className="ninja-foot ninja-foot-right" />
+
+              <g className="ninja-body">
+                <rect x="26" y="45" width="28" height="20" rx="10" className="ninja-suit" />
+                <rect x="26" y="55" width="28" height="4" className="ninja-belt" />
+                <ellipse cx="25.5" cy="54" rx="4" ry="6.5" className="ninja-suit ninja-arm ninja-arm-left" />
+                <ellipse cx="54.5" cy="54" rx="4" ry="6.5" className="ninja-suit ninja-arm ninja-arm-right" />
               </g>
-            )}
 
-            <g className="ninja-head">
-              <circle cx="40" cy="30" r="22" className="ninja-suit" />
-              <rect x="14" y="16" width="52" height="6" clipPath="url(#ninja-head-clip)" className="ninja-band" />
-              <circle cx="61.5" cy="21.5" r="2.6" className="ninja-band" />
-              <rect x="34.5" y="15.5" width="11" height="8" rx="1.8" className="ninja-plate" />
-              <circle cx="40" cy="19.5" r="2" className="ninja-plate-mark" />
-
-              <ellipse cx="40" cy="33" rx="16.5" ry="8.5" className="ninja-face" />
-              <ellipse cx="29" cy="37" rx="3" ry="1.6" className="ninja-blush" />
-              <ellipse cx="51" cy="37" rx="3" ry="1.6" className="ninja-blush" />
-
-              {mood === "oops" ? (
-                <g className="ninja-eyes-oops">
-                  <path d="M31 30.5 l5 2.2 l-5 2.2" />
-                  <path d="M49 30.5 l-5 2.2 l5 2.2" />
-                </g>
-              ) : eyesClosed ? (
-                <g className="ninja-eyes-closed">
-                  <path d="M31 33 q3 2.4 6 0" />
-                  <path d="M43 33 q3 2.4 6 0" />
+              {standing ? (
+                // On his feet, for cartwheels.
+                <g className="ninja-legs-standing">
+                  <g className="ninja-step ninja-step-left">
+                    <rect x="31.5" y="62" width="6.5" height="7" rx="3.2" className="ninja-suit" />
+                    <ellipse cx="34" cy="69.5" rx="4.4" ry="2.4" className="ninja-foot" />
+                  </g>
+                  <g className="ninja-step ninja-step-right">
+                    <rect x="42" y="62" width="6.5" height="7" rx="3.2" className="ninja-suit" />
+                    <ellipse cx="46" cy="69.5" rx="4.4" ry="2.4" className="ninja-foot" />
+                  </g>
                 </g>
               ) : (
-                <g className="ninja-eyes">
-                  <ellipse cx="34" cy="33" rx="2.7" ry="3.3" />
-                  <ellipse cx="46" cy="33" rx="2.7" ry="3.3" />
-                  <circle cx="35" cy="31.6" r="0.95" className="ninja-shine" />
-                  <circle cx="47" cy="31.6" r="0.95" className="ninja-shine" />
+                // Sitting cross-legged on the edge of the message box: knees out, feet tucked in.
+                <g className="ninja-legs">
+                  <ellipse cx="27" cy="64.5" rx="10.5" ry="5" className="ninja-suit" />
+                  <ellipse cx="53" cy="64.5" rx="10.5" ry="5" className="ninja-suit" />
+                  <ellipse cx="36" cy="66.5" rx="5.6" ry="3.2" className="ninja-foot ninja-foot-left" />
+                  <ellipse cx="44" cy="66.5" rx="5.6" ry="3.2" className="ninja-foot ninja-foot-right" />
                 </g>
               )}
-              {mood === "oops" && <path className="ninja-sweat" d="M58 26 q2.5 4 0 5.5 q-2.5 -1.5 0 -5.5 z" />}
-              {act === "yawn" && <ellipse cx="40" cy="44.5" rx="3.2" ry="3.6" className="ninja-mouth" />}
+
+              <g className="ninja-head">
+                <circle cx="40" cy="30" r="22" className="ninja-suit" />
+                <rect x="14" y="16" width="52" height="6" clipPath="url(#ninja-head-clip)" className="ninja-band" />
+                <circle cx="61.5" cy="21.5" r="2.6" className="ninja-band" />
+                <rect x="34.5" y="15.5" width="11" height="8" rx="1.8" className="ninja-plate" />
+                <circle cx="40" cy="19.5" r="2" className="ninja-plate-mark" />
+
+                <ellipse cx="40" cy="33" rx="16.5" ry="8.5" className="ninja-face" />
+                <ellipse cx="29" cy="37" rx="3" ry="1.6" className="ninja-blush" />
+                <ellipse cx="51" cy="37" rx="3" ry="1.6" className="ninja-blush" />
+
+                {mood === "oops" ? (
+                  <g className="ninja-eyes-oops">
+                    <path d="M31 30.5 l5 2.2 l-5 2.2" />
+                    <path d="M49 30.5 l-5 2.2 l5 2.2" />
+                  </g>
+                ) : eyesClosed ? (
+                  <g className="ninja-eyes-closed">
+                    <path d="M31 33 q3 2.4 6 0" />
+                    <path d="M43 33 q3 2.4 6 0" />
+                  </g>
+                ) : (
+                  <g className="ninja-eyes">
+                    <ellipse cx="34" cy="33" rx="2.7" ry="3.3" />
+                    <ellipse cx="46" cy="33" rx="2.7" ry="3.3" />
+                    <circle cx="35" cy="31.6" r="0.95" className="ninja-shine" />
+                    <circle cx="47" cy="31.6" r="0.95" className="ninja-shine" />
+                  </g>
+                )}
+                {mood === "oops" && <path className="ninja-sweat" d="M58 26 q2.5 4 0 5.5 q-2.5 -1.5 0 -5.5 z" />}
+                {act === "yawn" && <ellipse cx="40" cy="44.5" rx="3.2" ry="3.6" className="ninja-mouth" />}
+              </g>
             </g>
-          </g>
+          )}
 
           {act === "throw" && (
             // Thrown with the hand nearer the middle of the box, so it never flies at the send button.

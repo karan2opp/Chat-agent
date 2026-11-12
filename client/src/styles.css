@@ -766,25 +766,69 @@ body {
   stroke-linecap: round;
 }
 
-/* Walk: to the other end of the box, facing the way he goes (headband trailing behind). */
-.ninja[data-act="walk"][data-side="right"] .ninja-mover {
+/* Walk: seen from the side, to the other end of the box. The side view faces right, so it is
+   flipped when he walks left. Each leg swings with the opposite arm, and he bobs on every step. */
+.ninja[data-act="walk"][data-side="left"] .ninja-mover {
   transform: scaleX(-1);
 }
 
 .ninja[data-act="walk"] .ninja-figure {
-  animation: bob 0.32s ease-in-out infinite alternate;
+  animation: bob 0.25s ease-in-out infinite alternate;
 }
 
-.ninja-step {
+.ninja-side .ninja-tails {
+  transform-origin: right center;
+}
+
+.ninja-far {
+  fill: var(--ninja-foot);
+}
+
+.ninja-leg-near,
+.ninja-leg-far,
+.ninja-arm-near,
+.ninja-arm-far {
   transform-origin: top center;
 }
 
-.ninja[data-act="walk"] .ninja-step-left {
-  animation: step 0.32s ease-in-out infinite alternate;
+/* An outline keeps the near arm visible against the body. */
+.ninja-arm-near {
+  stroke: #232639;
+  stroke-width: 0.9;
 }
 
-.ninja[data-act="walk"] .ninja-step-right {
-  animation: step 0.32s ease-in-out -0.32s infinite alternate;
+.ninja-leg-near {
+  animation: stride 0.5s ease-in-out infinite alternate;
+}
+
+.ninja-leg-far {
+  animation: stride 0.5s ease-in-out -0.5s infinite alternate;
+}
+
+.ninja-arm-far {
+  animation: arm-swing 0.5s ease-in-out infinite alternate;
+}
+
+.ninja-arm-near {
+  animation: arm-swing 0.5s ease-in-out -0.5s infinite alternate;
+}
+
+@keyframes stride {
+  from {
+    transform: rotate(32deg);
+  }
+  to {
+    transform: rotate(-32deg);
+  }
+}
+
+@keyframes arm-swing {
+  from {
+    transform: rotate(45deg);
+  }
+  to {
+    transform: rotate(-45deg);
+  }
 }
 
 @keyframes bob {
@@ -793,15 +837,6 @@ body {
   }
   to {
     transform: translateY(-1.5px);
-  }
-}
-
-@keyframes step {
-  from {
-    transform: translateY(0);
-  }
-  to {
-    transform: translateY(-2px);
   }
 }
 
