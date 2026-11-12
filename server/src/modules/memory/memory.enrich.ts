@@ -4,7 +4,7 @@ import { generateObject, generateText } from "../../common/llm/llm.js";
 import { enqueue } from "../../common/queue.js";
 import type { Turn } from "../chat/chat.table.js";
 import * as chatRepo from "../chat/chat.repo.js";
-import { estimateTokens, turnsToCompact } from "./context-window.js";
+import { estimateTokens, truncateToTokens, turnsToCompact } from "./context-window.js";
 import * as claimsRepo from "./claims.repo.js";
 import { FACT_KINDS } from "./fact.table.js";
 import { planFactChanges } from "./facts.js";
@@ -128,14 +128,21 @@ const SUMMARY_BATCH_TURNS = 30;
 
 const SHORTEN_INSTRUCTIONS = `You shorten a summary of a conversation between a user and an AI assistant. Keep the user's goals, decisions, names, numbers and open questions; give recent points as much room as early ones. Drop repetition and detail that no longer matters. Return only the shorter summary.`;
 
-// The model is asked for a summary within its budget, but may not manage it. One more pass makes
-// it shorter on purpose, so the prompt rarely has to cut it off mid-sentence (truncateToTokens).
+// Extra passes allowed to bring an over-long summary within its budget.
+const SHORTEN_ATTEMPTS = 2;
+
+// The model is asked for a summary within its budget, but may not manage it. It is compacted
+// again, asking for less each time. Only if that still does not fit is the end cut off, so a
+// saved summary always fits and the prompt can use it as it is. If a model call fails, nothing
+// is saved and the same turns are folded in after the next reply.
 async function fitSummary(summary: string, summaryTokens: number): Promise<string> {
+  for (let attempt = 0; attempt < SHORTEN_ATTEMPTS && estimateTokens(summary) > summaryTokens; attempt++) {
+    const words = Math.floor(summaryTokens * (0.6 - 0.2 * attempt));
+    summary = await generateText(SHORTEN_INSTRUCTIONS, `Shorten this to under about ${words} words:\n\n${summary}`);
+  }
   if (estimateTokens(summary) <= summaryTokens) return summary;
-  return generateText(
-    SHORTEN_INSTRUCTIONS,
-    `Shorten this to under about ${Math.floor(summaryTokens * 0.6)} words:\n\n${summary}`,
-  );
+  console.error(`memory: chat summary still over ${summaryTokens} tokens after shortening; cutting the end off`);
+  return truncateToTokens(summary, summaryTokens);
 }
 
 // When the turns not yet in this chat's summary fill most of the recent budget, folds the older
@@ -147,6 +154,14 @@ export async function updateChatSummary(chatId: string): Promise<void> {
 
   const { recentTokens, summaryTokens } = budgets();
   let pending = turnsToCompact(await chatRepo.getRecentTurns(chatId, 1000), recentTokens, chat.summaryThroughTurnId);
+
+  // Nothing new to fold in, but the summary may be over a budget that was lowered since it was saved.
+  if (pending.length === 0) {
+    if (chat.summary && chat.summaryThroughTurnId !== null && estimateTokens(chat.summary) > summaryTokens) {
+      await chatRepo.setChatSummary(chatId, await fitSummary(chat.summary, summaryTokens), chat.summaryThroughTurnId);
+    }
+    return;
+  }
 
   let summary = chat.summary ?? "";
   while (pending.length > 0) {
