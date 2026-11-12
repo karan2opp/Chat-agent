@@ -10,7 +10,7 @@ prompt  = rules + long-term profile (≤3k tokens) + summary of older turns in t
           + today's date (changes once a day, so the prefix caches) + recent turns (≤40k, newest first)
 tools   = web_search (hosted)  recall_by_date  expand_summary  search_memory  get_claims
 after the reply: save turn + cited sources → queue: embed turn · extract claims and profile facts (one call)
-                 · fold dropped turns into the chat summary · summarise finished days
+                 · compact older turns into the chat summary when the window is 85% full · summarise finished days
 ```
 
 ## Memory, by the question it answers
@@ -23,7 +23,7 @@ after the reply: save turn + cited sources → queue: embed turn · extract clai
 | Claims | `claims`: subject, attribute, value, number, source URL, date stated; timelines flag changes in code (numbers compared as numbers) | "has pricing changed since?" The old values are looked up, not remembered by the model |
 | Topic search | Postgres full-text + pgvector, merged by rank fusion | "when did I ask about hosting?", paraphrases |
 | Long-term profile | `user_facts`; a change retires the old row, never overwrites | name, role, projects, preferences, in every prompt |
-| Chat summary | `chats.summary`, built from turns that left the recent window | long chats |
+| Chat summary | `chats.summary`; when unsummarised turns pass 85% of the recent budget, the older ones are compacted into it until the rest fit in 50%, so the prompt start stays the same (cacheable) between compactions | long chats |
 
 "Has it changed?" flow: `recall_by_date` → `get_claims` (old values and dates) → fresh `web_search` on the topic (not the old
 answer) → the model compares and states then, now, and what changed. New claims are saved, so the next check starts from today.

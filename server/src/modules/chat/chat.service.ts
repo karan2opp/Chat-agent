@@ -1,6 +1,6 @@
 import { run, type AgentInputItem } from "@openai/agents";
 import { agent } from "./chat.agent.js";
-import { fitRecent, truncateToTokens } from "../memory/context-window.js";
+import { fitRecent, truncateToTokens, unsummarised } from "../memory/context-window.js";
 import { isValidTimeZone } from "../memory/date-resolver.js";
 import { renderProfile } from "../memory/facts.js";
 import { getActiveFacts } from "../memory/facts.repo.js";
@@ -47,9 +47,11 @@ export async function startTurn(chatId: string | undefined, message: string) {
   if (id) {
     const chat = await repo.getChat(id);
     if (!chat) throw new ChatNotFoundError();
-    // Older turns that no longer fit below are carried by this running summary.
+    // The summary covers the older turns; every turn after it is sent word for word. fitRecent only
+    // cuts in if compaction has fallen behind (it runs after the reply, and could have failed).
     if (chat.summary) chatSummary = truncateToTokens(chat.summary, budgets().summaryTokens);
-    const { kept } = fitRecent(await repo.getRecentTurns(id, HISTORY_FETCH), budgets().recentTokens);
+    const recent = unsummarised(await repo.getRecentTurns(id, HISTORY_FETCH), chat.summaryThroughTurnId);
+    const { kept } = fitRecent(recent, budgets().recentTokens);
     for (const t of kept) {
       history.push({ role: "user", content: t.userText });
       history.push({ role: "assistant", content: t.assistantText });

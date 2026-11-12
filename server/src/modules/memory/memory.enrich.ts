@@ -4,7 +4,7 @@ import { generateObject, generateText } from "../../common/llm/llm.js";
 import { enqueue } from "../../common/queue.js";
 import type { Turn } from "../chat/chat.table.js";
 import * as chatRepo from "../chat/chat.repo.js";
-import { turnsToSummarise } from "./context-window.js";
+import { estimateTokens, turnsToCompact } from "./context-window.js";
 import * as claimsRepo from "./claims.repo.js";
 import { FACT_KINDS } from "./fact.table.js";
 import { planFactChanges } from "./facts.js";
@@ -126,14 +126,27 @@ Return the updated summary: keep the user's goals, decisions, names, numbers, pr
 // Turns are summarised in batches this big, so a long backlog never becomes one huge model call.
 const SUMMARY_BATCH_TURNS = 30;
 
-// Folds turns that have slid out of this chat's recent window into the chat's running summary.
-// The summary replaces them in the prompt; the turns themselves stay in the database.
+const SHORTEN_INSTRUCTIONS = `You shorten a summary of a conversation between a user and an AI assistant. Keep the user's goals, decisions, names, numbers and open questions; give recent points as much room as early ones. Drop repetition and detail that no longer matters. Return only the shorter summary.`;
+
+// The model is asked for a summary within its budget, but may not manage it. One more pass makes
+// it shorter on purpose, so the prompt rarely has to cut it off mid-sentence (truncateToTokens).
+async function fitSummary(summary: string, summaryTokens: number): Promise<string> {
+  if (estimateTokens(summary) <= summaryTokens) return summary;
+  return generateText(
+    SHORTEN_INSTRUCTIONS,
+    `Shorten this to under about ${Math.floor(summaryTokens * 0.6)} words:\n\n${summary}`,
+  );
+}
+
+// When the turns not yet in this chat's summary fill most of the recent budget, folds the older
+// half of them into the summary (compaction). The summary replaces them in the prompt; the turns
+// themselves stay in the database.
 export async function updateChatSummary(chatId: string): Promise<void> {
   const chat = await chatRepo.getChat(chatId);
   if (!chat) return;
 
   const { recentTokens, summaryTokens } = budgets();
-  let pending = turnsToSummarise(await chatRepo.getRecentTurns(chatId, 1000), recentTokens, chat.summaryThroughTurnId);
+  let pending = turnsToCompact(await chatRepo.getRecentTurns(chatId, 1000), recentTokens, chat.summaryThroughTurnId);
 
   let summary = chat.summary ?? "";
   while (pending.length > 0) {
@@ -152,6 +165,7 @@ ${summary || "(none yet)"}
 Exchanges leaving the window:
 ${exchanges}`,
     );
+    summary = await fitSummary(summary, summaryTokens);
     await chatRepo.setChatSummary(chatId, summary, batch[batch.length - 1].id);
   }
 }
@@ -169,8 +183,8 @@ export function enrichAfterTurn(turn: Turn, timeZone: string): void {
   enqueue("enrich turn", async () => {
     await step("embed turns", () => embedTurns(turn));
     await step("extract claims and profile facts", extractPending);
+    await step("compact the chat into its summary", () => updateChatSummary(turn.chatId));
     // Finished days get their summary now, so asking about them later does not wait for it.
-    await step("summarise turns that left the window", () => updateChatSummary(turn.chatId));
     await step("summarise finished days", () => summariseRecentDays(timeZone, turn.askedAt));
   });
 }

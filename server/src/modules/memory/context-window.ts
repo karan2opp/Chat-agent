@@ -31,17 +31,28 @@ export function fitRecent<T extends HistoryTurn>(
   return { kept: turns.slice(firstKept), dropped: turns.slice(0, firstKept) };
 }
 
-// Share of the recent-turns budget kept word for word when deciding what has "left" the window.
-// Summarising a little earlier than the prompt actually drops turns means the summary is ready
-// before it is needed; the small overlap with the window is harmless.
-const SUMMARISE_AT = 0.85;
+// The turns the chat's summary does not cover yet. These are the ones sent word for word.
+export function unsummarised<T extends HistoryTurn & { id: number }>(turns: T[], summarisedThroughId: number | null): T[] {
+  return summarisedThroughId === null ? turns : turns.filter((t) => t.id > summarisedThroughId);
+}
 
-// The turns that have left the recent window and are not yet in the chat's summary.
-export function turnsToSummarise<T extends HistoryTurn & { id: number }>(
+// Compaction happens in batches, not one turn at a time. Once the unsummarised turns pass
+// COMPACT_AT of the recent budget, the oldest of them are folded into the summary until the rest
+// fit in COMPACT_TO. Between compactions the start of the prompt (summary and older turns) does
+// not change, so a provider that caches a repeated prompt start can reuse it, and the summary is
+// rewritten only every so many turns. Starting before the budget is full gives the background
+// step time to finish before the next message needs the room.
+const COMPACT_AT = 0.85;
+const COMPACT_TO = 0.5;
+
+// The turns to fold into the summary now, oldest first; empty while there is still room.
+export function turnsToCompact<T extends HistoryTurn & { id: number }>(
   turns: T[],
   recentBudgetTokens: number,
   summarisedThroughId: number | null,
 ): T[] {
-  const { dropped } = fitRecent(turns, Math.floor(recentBudgetTokens * SUMMARISE_AT));
-  return dropped.filter((t) => summarisedThroughId === null || t.id > summarisedThroughId);
+  const pending = unsummarised(turns, summarisedThroughId);
+  const used = pending.reduce((sum, t) => sum + estimateTokens(t.userText) + estimateTokens(t.assistantText), 0);
+  if (used <= recentBudgetTokens * COMPACT_AT) return [];
+  return fitRecent(pending, Math.floor(recentBudgetTokens * COMPACT_TO)).dropped;
 }
