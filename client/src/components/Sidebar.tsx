@@ -11,15 +11,6 @@ type Props = {
   onFold: () => void;
 };
 
-function formatWhen(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 export default function Sidebar({ chats, activeId, open, onSelect, onNew, onFold }: Props) {
   return (
     // Folded, it stays in the page so it can slide back; CSS hides it from the keyboard too.
@@ -40,7 +31,10 @@ export default function Sidebar({ chats, activeId, open, onSelect, onNew, onFold
         </button>
       </div>
 
-      <nav className="chat-list" aria-label="Previous chats">
+      <nav className="chat-list" aria-labelledby="recents-label">
+        <h2 className="chat-list-label" id="recents-label">
+          Recents
+        </h2>
         {chats.length === 0 && <p className="chat-list-empty">No chats yet</p>}
         {chats.map((c) => (
           <button
@@ -50,7 +44,6 @@ export default function Sidebar({ chats, activeId, open, onSelect, onNew, onFold
             title={c.title}
           >
             <span className="chat-item-title">{c.title}</span>
-            <span className="chat-item-date">{formatWhen(c.updatedAt)}</span>
           </button>
         ))}
       </nav>

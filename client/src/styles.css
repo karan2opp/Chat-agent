@@ -173,7 +173,7 @@ body {
   flex-direction: column;
   gap: 2px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 9px 10px;
   border: 0;
   border-left: 3px solid transparent;
   border-radius: 8px;
@@ -200,8 +200,12 @@ body {
   text-overflow: ellipsis;
 }
 
-.chat-item-date {
+/* Lines up with the chat titles below (their padding plus the 3px active-chat border). */
+.chat-list-label {
+  margin: 4px 10px 6px 13px;
   font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
   color: var(--muted);
 }
 
