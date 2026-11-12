@@ -220,7 +220,7 @@ body {
   background: var(--bg);
 }
 
-/* Shown in the corner while the sidebar is folded: open it again, or start a new chat. */
+/* Shown in the corner while the sidebar is folded, to open it again. */
 .floating-controls {
   position: absolute;
   top: 12px;

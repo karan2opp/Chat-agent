@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import Chat from "./components/Chat";
-import { NewChatIcon, PanelIcon } from "./components/Icons";
+import { PanelIcon } from "./components/Icons";
 import Sidebar from "./components/Sidebar";
 import { listChats, type ChatSummary } from "./lib/api";
 
@@ -92,9 +92,6 @@ export default function App() {
           <div className="floating-controls">
             <button className="icon-button" onClick={() => toggleSidebar(true)} aria-label="Open sidebar" title="Open sidebar">
               <PanelIcon />
-            </button>
-            <button className="icon-button" onClick={newChat} aria-label="New chat" title="New chat">
-              <NewChatIcon />
             </button>
           </div>
         )}

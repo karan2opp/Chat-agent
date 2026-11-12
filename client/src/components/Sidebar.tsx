@@ -19,7 +19,7 @@ export default function Sidebar({ chats, activeId, open, onSelect, onNew, onFold
         <div className="sidebar-head">
           <span className="brand">
             <Shuriken />
-            minimi
+            Ray
             <span className="moon" aria-hidden="true" />
           </span>
           <button className="icon-button" onClick={onFold} aria-label="Fold sidebar" title="Fold sidebar">
