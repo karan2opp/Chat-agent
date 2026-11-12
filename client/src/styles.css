@@ -356,6 +356,37 @@ body {
   word-break: break-word;
 }
 
+/* A cited web page: a small label after the sentence it supports. */
+.message.assistant a.source {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 2px;
+  padding: 1px 8px 1px 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--raised);
+  color: var(--muted);
+  font-size: 0.78em;
+  line-height: 1.6;
+  text-decoration: none;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+.message.assistant a.source:hover {
+  border-color: var(--jade);
+  color: var(--text);
+}
+
+.source-label {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(95, 179, 168, 0.18);
+  color: var(--jade);
+  font-weight: 600;
+}
+
 .message.assistant code {
   padding: 1px 5px;
   border-radius: 5px;

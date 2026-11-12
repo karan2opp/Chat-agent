@@ -13,13 +13,28 @@ function cleanHref(href: string | undefined): string | undefined {
   }
 }
 
+// The search tool cites a page as "([example.com](https://example.com/...))" right after the
+// sentence it supports. Those become links titled "source", shown as a small "Source" label rather
+// than a bare link in brackets. Only complete citations match, so text still streaming in is fine.
+const CITATION = /\(\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)\)/g;
+
+function labelCitations(text: string): string {
+  return text.replace(CITATION, (_match, site: string, url: string) => `[${site}](${url} "source")`);
+}
+
 const components: Components = {
   // Links open in a new tab and cannot reach back into this page.
-  a: ({ href, children }) => (
-    <a href={cleanHref(href)} target="_blank" rel="noopener noreferrer">
-      {children}
-    </a>
-  ),
+  a: ({ href, title, children }) =>
+    title === "source" ? (
+      <a className="source" href={cleanHref(href)} target="_blank" rel="noopener noreferrer">
+        <span className="source-label">Source</span>
+        {children}
+      </a>
+    ) : (
+      <a href={cleanHref(href)} target="_blank" rel="noopener noreferrer">
+        {children}
+      </a>
+    ),
   // Wide tables scroll sideways inside the message instead of stretching the page.
   table: ({ children }) => (
     <div className="table-wrap">
@@ -33,7 +48,7 @@ const components: Components = {
 export default function Markdown({ text }: { text: string }) {
   return (
     <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-      {text}
+      {labelCitations(text)}
     </ReactMarkdown>
   );
 }
