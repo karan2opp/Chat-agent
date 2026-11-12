@@ -1,11 +1,14 @@
 import type { ChatSummary } from "../lib/api";
+import { PanelIcon } from "./Icons";
 import { Shuriken } from "./NinjaBuddy";
 
 type Props = {
   chats: ChatSummary[];
   activeId: string | undefined;
+  open: boolean;
   onSelect: (id: string) => void;
   onNew: () => void;
+  onFold: () => void;
 };
 
 function formatWhen(iso: string): string {
@@ -17,14 +20,21 @@ function formatWhen(iso: string): string {
   });
 }
 
-export default function Sidebar({ chats, activeId, onSelect, onNew }: Props) {
+export default function Sidebar({ chats, activeId, open, onSelect, onNew, onFold }: Props) {
   return (
-    <aside className="sidebar">
+    // Folded, it stays in the page so it can slide back; CSS hides it from the keyboard too.
+    <aside className={`sidebar${open ? "" : " folded"}`} aria-hidden={!open}>
       <div className="sidebar-top">
-        <span className="brand">
-          <Shuriken />
-          minimi
-        </span>
+        <div className="sidebar-head">
+          <span className="brand">
+            <Shuriken />
+            minimi
+            <span className="moon" aria-hidden="true" />
+          </span>
+          <button className="icon-button" onClick={onFold} aria-label="Fold sidebar" title="Fold sidebar">
+            <PanelIcon />
+          </button>
+        </div>
         <button className="new-chat" onClick={onNew}>
           + New chat
         </button>
