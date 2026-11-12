@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { bigint, bigserial, doublePrecision, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
-import { turns } from "../chat/chat.table.js";
+import { turns } from "../../chat/chat.table.js";
 
 // A claim is one checkable fact the assistant stated from a web search, such as "Pipedrive's
 // Essential plan costs $14 per user per month". Saving them as rows, not just prose, is what

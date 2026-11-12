@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../../common/http.js";
-import * as factsRepo from "./facts.repo.js";
+import * as factsRepo from "./facts/facts.repo.js";
 
 export const memoryRouter = Router();
 

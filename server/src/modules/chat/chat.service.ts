@@ -1,10 +1,10 @@
 import { run, type AgentInputItem } from "@openai/agents";
 import { agent } from "./chat.agent.js";
-import { fitRecent, unsummarised } from "../memory/context-window.js";
-import { isValidTimeZone } from "../memory/date-resolver.js";
-import { renderProfile } from "../memory/facts.js";
-import { getActiveFacts } from "../memory/facts.repo.js";
-import { budgets } from "../memory/memory.config.js";
+import { fitRecent, unsummarised } from "../memory/context/context-window.js";
+import { isValidTimeZone } from "../memory/time/date-resolver.js";
+import { renderProfile } from "../memory/facts/facts.js";
+import { getActiveFacts } from "../memory/facts/facts.repo.js";
+import { budgets } from "../memory/context/memory.config.js";
 import type { AgentContext } from "../memory/memory.tools.js";
 import * as repo from "./chat.repo.js";
 import type { ChatMessage } from "./chat.schema.js";

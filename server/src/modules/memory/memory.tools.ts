@@ -1,13 +1,13 @@
 import { tool } from "@openai/agents";
 import { z } from "zod";
-import { resolveWhen, type DateRange } from "./date-resolver.js";
-import { buildTimelines } from "./claims.js";
-import * as claimsRepo from "./claims.repo.js";
+import { resolveWhen, type DateRange } from "./time/date-resolver.js";
+import { buildTimelines } from "./claims/claims.js";
+import * as claimsRepo from "./claims/claims.repo.js";
 import * as repo from "./memory.repo.js";
-import { searchMemory as searchMemoryTurns } from "./memory.search.js";
-import * as summaryRepo from "./summaries.repo.js";
-import { summariesForRange } from "./summaries.js";
-import type { Summary } from "./summary.table.js";
+import { searchMemory as searchMemoryTurns } from "./search/memory.search.js";
+import * as summaryRepo from "./summaries/summaries.repo.js";
+import { summariesForRange } from "./summaries/summaries.js";
+import type { Summary } from "./summaries/summary.table.js";
 
 // Per-request data the tools need, passed to the agent run as its context.
 export type AgentContext = {

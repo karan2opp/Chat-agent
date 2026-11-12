@@ -1,5 +1,5 @@
-import { embedOne } from "../../common/llm/embeddings.js";
-import * as repo from "./memory.repo.js";
+import { embedOne } from "../../../common/llm/embeddings.js";
+import * as repo from "../memory.repo.js";
 import { fuseRanked } from "./rank-fusion.js";
 
 // Searching past turns by words and by meaning at once. The keyword search catches exact names

@@ -1,7 +1,7 @@
 import { and, asc, cosineDistance, desc, eq, gte, isNull, lt, sql, type SQL } from "drizzle-orm";
 import { db } from "../../common/db/client.js";
 import { turns, type Turn } from "../chat/chat.table.js";
-import { turnEmbeddings } from "./embedding.table.js";
+import { turnEmbeddings } from "./search/embedding.table.js";
 
 export type MemoryTurn = Turn;
 

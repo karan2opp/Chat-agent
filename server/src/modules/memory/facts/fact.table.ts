@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { bigint, bigserial, index, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
-import { turns } from "../chat/chat.table.js";
+import { turns } from "../../chat/chat.table.js";
 
 export const FACT_KINDS = ["profile", "preference", "project", "goal", "other"] as const;
 export type FactKind = (typeof FACT_KINDS)[number];

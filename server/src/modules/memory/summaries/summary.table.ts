@@ -1,5 +1,5 @@
 import { bigint, bigserial, date, index, integer, pgTable, primaryKey, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
-import { turns } from "../chat/chat.table.js";
+import { turns } from "../../chat/chat.table.js";
 
 export type SummaryLevel = "day" | "week" | "month" | "year";
 

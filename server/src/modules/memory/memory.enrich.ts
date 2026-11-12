@@ -4,14 +4,14 @@ import { generateObject, generateText } from "../../common/llm/llm.js";
 import { enqueue } from "../../common/queue.js";
 import type { Turn } from "../chat/chat.table.js";
 import * as chatRepo from "../chat/chat.repo.js";
-import { estimateTokens, truncateToTokens, turnsToCompact } from "./context-window.js";
-import * as claimsRepo from "./claims.repo.js";
-import { FACT_KINDS } from "./fact.table.js";
-import { planFactChanges } from "./facts.js";
-import * as factsRepo from "./facts.repo.js";
+import { estimateTokens, truncateToTokens, turnsToCompact } from "./context/context-window.js";
+import * as claimsRepo from "./claims/claims.repo.js";
+import { FACT_KINDS } from "./facts/fact.table.js";
+import { planFactChanges } from "./facts/facts.js";
+import * as factsRepo from "./facts/facts.repo.js";
 import * as memoryRepo from "./memory.repo.js";
-import { budgets } from "./memory.config.js";
-import { summariseRecentDays } from "./summaries.js";
+import { budgets } from "./context/memory.config.js";
+import { summariseRecentDays } from "./summaries/summaries.js";
 
 // Work done about a turn after its reply has been streamed and saved. The user never waits for
 // any of it. Each step is independent: one failing does not stop the others.

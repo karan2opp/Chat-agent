@@ -1,4 +1,4 @@
-import { estimateTokens } from "./context-window.js";
+import { estimateTokens } from "../context/context-window.js";
 import type { FactKind, UserFact } from "./fact.table.js";
 
 // Deciding what to change in the user's long-term facts, and how to show them to the model.

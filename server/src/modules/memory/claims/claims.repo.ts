@@ -1,5 +1,5 @@
 import { and, asc, eq, gte, lt, sql, type SQL } from "drizzle-orm";
-import { db } from "../../common/db/client.js";
+import { db } from "../../../common/db/client.js";
 import { claims, type Claim, type NewClaim } from "./claim.table.js";
 
 export async function insertClaims(rows: NewClaim[]): Promise<void> {

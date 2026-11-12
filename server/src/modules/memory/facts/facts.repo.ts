@@ -1,5 +1,5 @@
 import { asc, desc, inArray, isNotNull, isNull } from "drizzle-orm";
-import { db } from "../../common/db/client.js";
+import { db } from "../../../common/db/client.js";
 import { userFacts, type UserFact } from "./fact.table.js";
 import type { FactChanges } from "./facts.js";
 
