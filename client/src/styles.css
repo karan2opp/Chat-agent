@@ -745,6 +745,362 @@ body {
   }
 }
 
+/* ---- idle tricks: what the ninja does on his own while nobody is typing ---- */
+
+.ninja-mover {
+  display: flex;
+}
+
+.ninja-mouth {
+  fill: #c94a5a;
+  transform-origin: center;
+}
+
+.ninja-eyes-closed path {
+  fill: none;
+  stroke: #1b1b24;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+/* Walk: along the edge of the box and back, facing the way he goes (headband trailing behind). */
+.ninja[data-act="walk"] .ninja-mover {
+  animation: walk-path 5.2s ease-in-out;
+}
+
+.ninja[data-act="walk"] .ninja-art {
+  animation: walk-face 5.2s linear;
+}
+
+.ninja[data-act="walk"] .ninja-figure {
+  animation: bob 0.32s ease-in-out infinite alternate;
+}
+
+.ninja-step {
+  transform-origin: top center;
+}
+
+.ninja[data-act="walk"] .ninja-step-left {
+  animation: step 0.32s ease-in-out infinite alternate;
+}
+
+.ninja[data-act="walk"] .ninja-step-right {
+  animation: step 0.32s ease-in-out -0.32s infinite alternate;
+}
+
+@keyframes walk-path {
+  0% {
+    transform: translateX(0);
+  }
+  46%,
+  54% {
+    transform: translateX(120px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes walk-face {
+  0%,
+  49.9% {
+    transform: scaleX(-1);
+  }
+  50%,
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes bob {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-1.5px);
+  }
+}
+
+@keyframes step {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-2px);
+  }
+}
+
+/* Cartwheel: one roll out, one roll back. */
+.ninja[data-act="cartwheel"] .ninja-mover {
+  animation: cartwheel-path 1.8s ease-in-out;
+}
+
+.ninja[data-act="cartwheel"] .ninja-figure {
+  transform-origin: center;
+  animation: cartwheel-spin 1.8s ease-in-out;
+}
+
+@keyframes cartwheel-path {
+  0% {
+    transform: translateX(0);
+  }
+  40%,
+  60% {
+    transform: translateX(100px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes cartwheel-spin {
+  0% {
+    transform: rotate(0);
+  }
+  40%,
+  60% {
+    transform: rotate(360deg);
+  }
+  100% {
+    transform: rotate(0);
+  }
+}
+
+/* Throw: winds up and sends a shuriken spinning off to the right. */
+.ninja[data-act="throw"] .ninja-arm-right {
+  transform-origin: top center;
+  animation: wind-up 1.4s ease-in-out;
+}
+
+.ninja-thrown path {
+  fill: #c9ced8;
+}
+
+.ninja-thrown {
+  transform-origin: center;
+  animation: fly 1.4s ease-out forwards;
+}
+
+@keyframes wind-up {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  18% {
+    transform: rotate(-150deg);
+  }
+  32% {
+    transform: rotate(30deg);
+  }
+  55% {
+    transform: rotate(0);
+  }
+}
+
+@keyframes fly {
+  0%,
+  28% {
+    opacity: 0;
+    transform: translateX(0) rotate(0);
+  }
+  32% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(150px) rotate(1080deg);
+  }
+}
+
+/* Vanish: a puff of smoke, gone for a moment, then another puff and he is back. */
+.ninja[data-act="vanish"] .ninja-figure {
+  animation: vanish 1.8s ease-in-out;
+}
+
+.ninja-smoke circle {
+  fill: rgba(205, 208, 220, 0.9);
+  transform-origin: center;
+  transform: scale(0);
+  animation: puff 1.8s ease-out;
+}
+
+.ninja-smoke circle:nth-child(2) {
+  animation-delay: 0.05s;
+}
+
+.ninja-smoke circle:nth-child(3) {
+  animation-delay: 0.1s;
+}
+
+@keyframes vanish {
+  0%,
+  18% {
+    opacity: 1;
+  }
+  26%,
+  68% {
+    opacity: 0;
+  }
+  78%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes puff {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  14% {
+    transform: scale(0.6);
+    opacity: 0.95;
+  }
+  34% {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(0.6);
+    opacity: 0.95;
+  }
+  92%,
+  100% {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+}
+
+/* Yawn: arms up, head back, mouth open. */
+.ninja[data-act="yawn"] .ninja-head {
+  transform-origin: bottom center;
+  animation: yawn-head 2.4s ease-in-out;
+}
+
+.ninja[data-act="yawn"] .ninja-mouth {
+  animation: yawn-mouth 2.4s ease-in-out;
+}
+
+.ninja[data-act="yawn"] .ninja-arm-left {
+  transform-origin: bottom center;
+  animation: stretch-left 2.4s ease-in-out;
+}
+
+.ninja[data-act="yawn"] .ninja-arm-right {
+  transform-origin: bottom center;
+  animation: stretch-right 2.4s ease-in-out;
+}
+
+@keyframes yawn-head {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  30%,
+  70% {
+    transform: rotate(-5deg);
+  }
+}
+
+@keyframes yawn-mouth {
+  0%,
+  100% {
+    transform: scale(0);
+  }
+  30%,
+  70% {
+    transform: scale(1);
+  }
+}
+
+@keyframes stretch-left {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0);
+  }
+  30%,
+  70% {
+    transform: translate(-1px, -9px) rotate(-25deg);
+  }
+}
+
+@keyframes stretch-right {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0);
+  }
+  30%,
+  70% {
+    transform: translate(1px, -9px) rotate(25deg);
+  }
+}
+
+/* Sleep: head drooping, breathing slowly, z's floating up. Stays until someone types. */
+.ninja[data-act="sleep"] .ninja-head {
+  transform-origin: bottom center;
+  animation: doze 2.6s ease-in-out infinite alternate;
+}
+
+.ninja[data-act="sleep"] .ninja-foot {
+  animation: none;
+}
+
+.ninja-zzz text {
+  font-family: var(--font-cute);
+  font-weight: 700;
+  font-size: 8px;
+  fill: #b9bfd6;
+  opacity: 0;
+  animation: float-z 2.7s ease-out infinite;
+}
+
+.ninja-zzz text:nth-child(2) {
+  font-size: 9.5px;
+  animation-delay: 0.9s;
+}
+
+.ninja-zzz text:nth-child(3) {
+  font-size: 11px;
+  animation-delay: 1.8s;
+}
+
+@keyframes doze {
+  from {
+    transform: rotate(6deg) translateY(0);
+  }
+  to {
+    transform: rotate(9deg) translateY(1px);
+  }
+}
+
+@keyframes float-z {
+  0% {
+    opacity: 0;
+    transform: translate(0, 4px);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(4px, -6px);
+  }
+}
+
+/* With less motion asked for, the sleeping ninja still shows his z's, just without moving. */
+@media (prefers-reduced-motion: reduce) {
+  .ninja-zzz text {
+    opacity: 1;
+  }
+}
+
 /* Speech bubble next to the ninja's head. */
 .ninja-status {
   margin: 8px 0 0 6px;
