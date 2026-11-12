@@ -3,7 +3,7 @@ import { agent } from "./chat.agent.js";
 import { fitRecent, unsummarised } from "../memory/context/context-window.js";
 import { isValidTimeZone } from "../memory/time/date-resolver.js";
 import { renderProfile } from "../memory/facts/facts.js";
-import { getActiveFacts } from "../memory/facts/facts.repo.js";
+import { getActiveFacts, getRecentlyReplacedFacts } from "../memory/facts/facts.repo.js";
 import { budgets } from "../memory/context/memory.config.js";
 import { renderPersona } from "../memory/persona/persona.js";
 import { getPersonaFacts } from "../memory/persona/persona.repo.js";
@@ -39,8 +39,12 @@ function titleFrom(message: string): string {
   return oneLine.length > 60 ? `${oneLine.slice(0, 57)}...` : oneLine;
 }
 
+// Replaced profile values read per turn; only a couple per topic are shown.
+const REPLACED_FACTS_FETCH = 200;
+
 // Resolves the chat (creating one if needed) and builds the model input from stored history.
-export async function startTurn(chatId: string | undefined, message: string) {
+// `timeZone` is the user's, for the dates shown next to profile facts.
+export async function startTurn(chatId: string | undefined, message: string, timeZone: string) {
   const askedAt = new Date();
   const history: ChatMessage[] = [];
 
@@ -65,8 +69,12 @@ export async function startTurn(chatId: string | undefined, message: string) {
 
   // Long-term facts about the user, and Ray's own backstory, go into the prompt on every turn,
   // each within its own budget.
-  const [facts, backstory] = await Promise.all([getActiveFacts(), getPersonaFacts()]);
-  const userProfile = renderProfile(facts, budgets().coreTokens);
+  const [facts, replaced, backstory] = await Promise.all([
+    getActiveFacts(),
+    getRecentlyReplacedFacts(REPLACED_FACTS_FETCH),
+    getPersonaFacts(),
+  ]);
+  const userProfile = renderProfile(facts, replaced, budgets().coreTokens, timeZone);
   const persona = renderPersona(backstory, budgets().personaTokens);
 
   return {

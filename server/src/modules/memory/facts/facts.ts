@@ -58,17 +58,55 @@ const KIND_TITLES: Record<FactKind, string> = {
   other: "Other",
 };
 
-// Renders the active facts for the prompt, newest first until the token budget is used up, then
-// grouped by kind. Older facts that do not fit stay in the database.
-export function renderProfile(facts: UserFact[], budgetTokens: number): string {
-  const newestFirst = [...facts].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id);
+// How many replaced values are shown under a current fact, newest first.
+export const EARLIER_PER_FACT = 2;
+
+const newestFirst = (facts: UserFact[]) =>
+  [...facts].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id);
+
+// Renders the user's facts for the prompt, grouped by kind. Each current fact is one line. If it
+// replaced earlier values, it also shows when it was said and up to EARLIER_PER_FACT of those
+// earlier values, so the model can see how things moved ("planned 2 SDE interns, now has 1")
+// and answer "what changed?". For example:
+//
+//   - project:abhyas: Building Abhyas, with one SDE intern. (since 12 Nov)
+//     earlier: Building Abhyas, planning to hire two SDE interns. (12 Nov)
+//
+// Current facts get the budget first, newest first; earlier values only fill what is left, so
+// history never pushes out something that is true now. A topic the user said is no longer true has
+// no current value, so its old values are not shown (they stay in the database for search).
+export function renderProfile(active: UserFact[], replaced: UserFact[], budgetTokens: number, timeZone: string): string {
+  const day = (d: Date) => new Intl.DateTimeFormat("en-GB", { timeZone, day: "numeric", month: "short" }).format(d);
+
+  const earlierByKey = new Map<string, UserFact[]>();
+  for (const old of newestFirst(replaced)) {
+    const list = earlierByKey.get(old.key) ?? [];
+    if (list.length < EARLIER_PER_FACT) list.push(old);
+    earlierByKey.set(old.key, list);
+  }
+  const hasHistory = (f: UserFact) => (earlierByKey.get(f.key)?.length ?? 0) > 0;
+  const currentLine = (f: UserFact) => `- ${f.key}: ${f.value}${hasHistory(f) ? ` (since ${day(f.createdAt)})` : ""}`;
+
   const kept: UserFact[] = [];
   let used = 0;
-  for (const fact of newestFirst) {
-    const cost = estimateTokens(`- ${fact.key}: ${fact.value}\n`);
+  for (const fact of newestFirst(active)) {
+    const cost = estimateTokens(`${currentLine(fact)}\n`);
     if (used + cost > budgetTokens) continue;
     used += cost;
     kept.push(fact);
+  }
+
+  const earlierLines = new Map<number, string[]>();
+  for (const fact of kept) {
+    const lines: string[] = [];
+    for (const old of earlierByKey.get(fact.key) ?? []) {
+      const line = `  earlier: ${old.value} (${day(old.createdAt)})`;
+      const cost = estimateTokens(`${line}\n`);
+      if (used + cost > budgetTokens) break;
+      used += cost;
+      lines.push(line);
+    }
+    earlierLines.set(fact.id, lines);
   }
 
   const sections: string[] = [];
@@ -76,7 +114,7 @@ export function renderProfile(facts: UserFact[], budgetTokens: number): string {
     const lines = kept
       .filter((f) => f.kind === kind)
       .sort((a, b) => a.id - b.id)
-      .map((f) => `- ${f.key}: ${f.value}`);
+      .flatMap((f) => [currentLine(f), ...(earlierLines.get(f.id) ?? [])]);
     if (lines.length > 0) sections.push(`${KIND_TITLES[kind]}:\n${lines.join("\n")}`);
   }
   return sections.join("\n");

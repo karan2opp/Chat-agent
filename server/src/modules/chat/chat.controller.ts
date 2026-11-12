@@ -32,9 +32,10 @@ export async function postChat(req: Request, res: Response): Promise<void> {
   const abort = new AbortController();
   res.on("close", () => abort.abort());
 
+  const timeZone = pickTimeZone(parsed.data.timeZone);
   let turn;
   try {
-    turn = await startTurn(parsed.data.chatId, parsed.data.message);
+    turn = await startTurn(parsed.data.chatId, parsed.data.message, timeZone);
   } catch (err) {
     if (err instanceof ChatNotFoundError) {
       res.status(404).json({ error: "Chat not found" });
@@ -48,7 +49,6 @@ export async function postChat(req: Request, res: Response): Promise<void> {
   let reply = "";
   try {
     // The clock is the moment the question arrived, the same instant stored as the turn's time.
-    const timeZone = pickTimeZone(parsed.data.timeZone);
     const result = await streamReply(turn.messages, abort.signal, {
       now: turn.askedAt,
       timeZone,
