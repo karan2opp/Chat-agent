@@ -11,13 +11,16 @@ import { planFactChanges } from "./facts/facts.js";
 import * as factsRepo from "./facts/facts.repo.js";
 import * as memoryRepo from "./memory.repo.js";
 import { budgets } from "./context/memory.config.js";
+import { newPersonaDetails } from "./persona/persona.js";
+import * as personaRepo from "./persona/persona.repo.js";
 import { summariseRecentDays } from "./summaries/summaries.js";
 
 // Work done about a turn after its reply has been streamed and saved. The user never waits for
 // any of it. Each step is independent: one failing does not stop the others.
 
-// One model call reads the turn and returns both things worth remembering from it: checkable
-// facts from the web (claims) and durable facts the user told us about themselves.
+// One model call reads the turn and returns everything worth remembering from it: checkable facts
+// from the web (claims), durable facts the user told us about themselves, and any new part of
+// Ray's own backstory he made up while answering.
 const Extracted = z.object({
   claims: z.array(
     z.object({
@@ -37,6 +40,14 @@ const Extracted = z.object({
       value: z.string().describe("The fact in a short phrase. Empty for 'remove'."),
     }),
   ),
+  rayFacts: z.array(
+    z.object({
+      key: z.string().describe("Topic of the detail: 'origin', 'age', 'family', 'training', 'hobby', 'favourite food', ..."),
+      story: z
+        .string()
+        .describe("The detail in one to three sentences, written in the first person as Ray ('I grew up ...'), keeping names and places."),
+    }),
+  ),
 });
 
 const INSTRUCTIONS = `You read one exchange between a user and an assistant and pull out what is worth remembering.
@@ -45,12 +56,15 @@ const INSTRUCTIONS = `You read one exchange between a user and an assistant and 
 
 2. userFacts: durable facts the USER states about themselves: name, role, employer, location, preferences, goals, habits, and the projects they are building (one short line per project). Not questions, one-off requests, or facts about the world. Reuse the keys of the known facts when the same thing comes up again. Use action "set" for a new or changed fact and "remove" when the user says something is no longer true. Do not repeat a known fact that has not changed.
 
+3. rayFacts: details the ASSISTANT (Ray, a ninja character) told about HIMSELF in this reply that are not already in his known backstory: where he is from, his age, family, training, hobbies, favourite things, past adventures. One entry per topic. Skip details already in the known backstory and anything about the user or the world.
+
 Return empty lists when there is nothing to record.`;
 
 async function extract(turn: Turn): Promise<void> {
-  const [earlierClaims, knownFacts] = await Promise.all([
+  const [earlierClaims, knownFacts, backstory] = await Promise.all([
     turn.sources.length > 0 ? claimsRepo.findClaims(turn.userText, undefined, 40) : [],
     factsRepo.getActiveFacts(),
+    personaRepo.getPersonaFacts(),
   ]);
 
   const input = [
@@ -60,6 +74,7 @@ async function extract(turn: Turn): Promise<void> {
       ? `Web sources: ${turn.sources.map((s) => `${s.url} (${s.title})`).join("; ")}`
       : "Web sources: none",
     knownFacts.length > 0 ? `Known facts about the user:\n${knownFacts.map((f) => `- ${f.key}: ${f.value}`).join("\n")}` : "",
+    backstory.length > 0 ? `Ray's known backstory:\n${backstory.map((f) => `- ${f.key}: ${f.story}`).join("\n")}` : "",
     earlierClaims.length > 0
       ? `Earlier claims (reuse these names):\n${[...new Set(earlierClaims.map((c) => `- ${c.subject} | ${c.attribute}`))].join("\n")}`
       : "",
@@ -85,6 +100,7 @@ async function extract(turn: Turn): Promise<void> {
     );
   }
   await factsRepo.applyFactChanges(planFactChanges(knownFacts, result.userFacts), turn.id);
+  await personaRepo.addPersonaDetails(newPersonaDetails(backstory, result.rayFacts), turn.id);
 }
 
 // A turn is read this many times at most; after that it is left alone instead of failing forever.

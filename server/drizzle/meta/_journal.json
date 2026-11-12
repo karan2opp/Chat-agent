@@ -57,6 +57,13 @@
       "when": 1794407654706,
       "tag": "0007_lazy_iceman",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794497931307,
+      "tag": "0008_right_norman_osborn",
+      "breakpoints": true
     }
   ]
 }

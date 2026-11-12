@@ -13,6 +13,8 @@ import type { Summary } from "./summaries/summary.table.js";
 export type AgentContext = {
   timeZone: string;
   now: Date;
+  // Ray's backstory as told so far, already rendered and within budget.
+  persona?: string;
   // Long-term facts about the user, already rendered and within budget.
   userProfile?: string;
   // Summary of this chat's turns that no longer fit in the recent window.

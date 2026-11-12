@@ -5,6 +5,8 @@ import { isValidTimeZone } from "../memory/time/date-resolver.js";
 import { renderProfile } from "../memory/facts/facts.js";
 import { getActiveFacts } from "../memory/facts/facts.repo.js";
 import { budgets } from "../memory/context/memory.config.js";
+import { renderPersona } from "../memory/persona/persona.js";
+import { getPersonaFacts } from "../memory/persona/persona.repo.js";
 import type { AgentContext } from "../memory/memory.tools.js";
 import * as repo from "./chat.repo.js";
 import type { ChatMessage } from "./chat.schema.js";
@@ -61,12 +63,16 @@ export async function startTurn(chatId: string | undefined, message: string) {
     id = await repo.createChat(titleFrom(message));
   }
 
-  // Long-term facts about the user go into the prompt on every turn, within their own budget.
-  const userProfile = renderProfile(await getActiveFacts(), budgets().coreTokens);
+  // Long-term facts about the user, and Ray's own backstory, go into the prompt on every turn,
+  // each within its own budget.
+  const [facts, backstory] = await Promise.all([getActiveFacts(), getPersonaFacts()]);
+  const userProfile = renderProfile(facts, budgets().coreTokens);
+  const persona = renderPersona(backstory, budgets().personaTokens);
 
   return {
     chatId: id,
     askedAt,
+    persona,
     userProfile,
     chatSummary,
     messages: [...history, { role: "user", content: message } as ChatMessage],

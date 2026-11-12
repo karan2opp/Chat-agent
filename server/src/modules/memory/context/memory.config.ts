@@ -13,6 +13,8 @@ export function budgets() {
   return {
     // Long-term facts about the user, always in the prompt.
     coreTokens: fromEnv("MEMORY_CORE_TOKENS", 3_000),
+    // Ray's own backstory, always in the prompt so he tells it the same way every time.
+    personaTokens: fromEnv("MEMORY_PERSONA_TOKENS", 1_500),
     // Summary of the turns of this chat that no longer fit in the recent window.
     summaryTokens: fromEnv("MEMORY_SUMMARY_TOKENS", 4_000),
     // Word-for-word recent turns of this chat.

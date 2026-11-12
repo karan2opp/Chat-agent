@@ -52,6 +52,7 @@ export async function postChat(req: Request, res: Response): Promise<void> {
     const result = await streamReply(turn.messages, abort.signal, {
       now: turn.askedAt,
       timeZone,
+      persona: turn.persona,
       userProfile: turn.userProfile,
       chatSummary: turn.chatSummary,
     });
