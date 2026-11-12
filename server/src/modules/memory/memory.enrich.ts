@@ -36,8 +36,12 @@ const Extracted = z.object({
     z.object({
       action: z.enum(["set", "remove"]),
       kind: z.enum(FACT_KINDS),
-      key: z.string().describe("Stable name: 'name', 'role', 'employer', 'location', 'preference:<topic>', 'project:<name>', 'goal:<topic>'."),
-      value: z.string().describe("The fact in a short phrase. Empty for 'remove'."),
+      key: z
+        .string()
+        .describe(
+          "Stable name, one per topic: 'name', 'role', 'employer', 'location', 'preference:<topic>', 'goal:<topic>', 'project:<name>' for what a project is, and 'project:<name>:<part>' for each part of it, e.g. 'project:abhyas:hiring', 'project:abhyas:features'.",
+        ),
+      value: z.string().describe("The complete current state of that topic in a short phrase. Empty for 'remove'."),
     }),
   ),
   rayFacts: z.array(
@@ -54,7 +58,10 @@ const INSTRUCTIONS = `You read one exchange between a user and an assistant and 
 
 1. claims: checkable, time-sensitive facts the ASSISTANT stated from the web sources: prices, plan names, versions, release dates, availability, limits, rankings. Skip opinions, advice, explanations and anything the sources do not support. Only extract claims when web sources are listed. Write each claim so it stands alone. Use the same subject and attribute names each time the same thing is stated, preferring the names in the list of earlier claims. Set sourceUrl only to the page that states that specific claim (one of the listed sources), or null when unsure.
 
-2. userFacts: durable facts the USER states about themselves: name, role, employer, location, preferences, goals, habits, and the projects they are building (one short line per project). Not questions, one-off requests, or facts about the world. Reuse the keys of the known facts when the same thing comes up again. Use action "set" for a new or changed fact and "remove" when the user says something is no longer true. Do not repeat a known fact that has not changed.
+2. userFacts: durable facts the USER states about themselves: name, role, employer, location, preferences, goals, habits, and the projects they are building. Not questions, one-off requests, or facts about the world.
+   - One topic per key. Give each part of a project its own key ('project:<name>:hiring', 'project:<name>:features', 'project:<name>:launch', ...) next to 'project:<name>' for what the project is, so news about one part never touches another. Reuse the keys of the known facts when the same thing comes up again.
+   - Set only the keys the exchange changes, and write each one's complete current state: keep everything in the known value that is still true and apply the change on top. Keep a plan and the progress on it together, with numbers. Example: known "plan: 2 SDE interns and 1 growth intern; hired: 1 SDE intern, 1 growth intern" + "hired one more SDE intern" -> "plan: 2 SDE interns and 1 growth intern; hired: 2 SDE interns, 1 growth intern (plan complete)".
+   - Use action "set" for a new or changed fact and "remove" when the user says something is no longer true. Do not repeat a known fact that has not changed.
 
 3. rayFacts: details the ASSISTANT (Ray, a ninja character) told about HIMSELF in this reply that are not already in his known backstory: where he is from, his age, family, training, hobbies, favourite things, past adventures. One entry per topic. Skip details already in the known backstory and anything about the user or the world.
 
