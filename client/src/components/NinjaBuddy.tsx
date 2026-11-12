@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 
 // The little ninja that sits on the message box and shows what the assistant is doing.
 
@@ -12,13 +12,26 @@ const LABELS: Record<Exclude<NinjaMood, "idle">, { text: string; dots: boolean }
   oops: { text: "Oops, that failed", dots: false },
 };
 
-// Something the ninja does on his own while nobody is typing.
+// Something the ninja does on his own while nobody is typing. Walking, cartwheeling and
+// vanishing take him to the other end of the message box, where he stays.
 type Trick = "walk" | "yawn" | "cartwheel" | "throw" | "vanish";
-type Act = "none" | Trick | "sleep";
+type Act = "none" | "walk" | "yawn" | "cartwheel" | "throw" | "vanish-out" | "vanish-in" | "sleep";
+type Side = "left" | "right";
 
-// How long each trick's animation runs; must match the CSS.
-const TRICK_MS: Record<Trick, number> = { walk: 5200, yawn: 2400, cartwheel: 1800, throw: 1400, vanish: 1800 };
-const TRICKS = Object.keys(TRICK_MS) as Trick[];
+const TRICKS: Trick[] = ["walk", "yawn", "cartwheel", "throw", "vanish"];
+const TRAVELS = new Set<Trick>(["walk", "cartwheel", "vanish"]);
+
+// Animation lengths; they must match the CSS.
+const YAWN_MS = 2400;
+const THROW_MS = 1400;
+const VANISH_OUT_MS = 800;
+const VANISH_IN_MS = 900;
+// Walking and cartwheeling take as long as the distance needs.
+const WALK_PX_PER_SECOND = 70;
+const ROLL_PX_PER_SECOND = 220;
+const ROLL_PX_PER_TURN = 110;
+// Too narrow a box (a small phone) and he stays put: only the tricks done on the spot.
+const MIN_TRAVEL_PX = 60;
 
 // Tricks are kept rare so they stay fun rather than distracting.
 const FIRST_TRICK_MS = [12_000, 20_000];
@@ -26,19 +39,61 @@ const BETWEEN_TRICKS_MS = [20_000, 40_000];
 // After this long with nothing happening he dozes off, until someone starts typing.
 const SLEEP_AFTER_MS = 90_000;
 
-const between = ([min, max]: number[]) => min + Math.random() * (max - min);
+// The drawing's width in pixels, and the gap he keeps from the ends of the message box.
+const ART_WIDTH = 76;
+const EDGE_GAP = 10;
 
-// Picks what the ninja is doing right now. Anything other than idle (the user typing, a reply
-// coming in) cancels it at once and starts the quiet time over.
-function useIdleAct(idle: boolean): Act {
+const between = ([min, max]: number[]) => min + Math.random() * (max - min);
+const other = (side: Side): Side => (side === "left" ? "right" : "left");
+
+type Travel = { ms: number; spin: number };
+
+// Where the two ends of the message box are, kept up to date when the window resizes.
+function useEdges(ref: RefObject<HTMLDivElement>) {
+  const [edges, setEdges] = useState<{ left: number; right: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const box = ref.current?.parentElement;
+    const input = box?.querySelector("textarea");
+    if (!box || !input) return;
+    const measure = () => {
+      const left = input.offsetLeft + EDGE_GAP;
+      setEdges({ left, right: Math.max(left, input.offsetLeft + input.offsetWidth - ART_WIDTH - EDGE_GAP) });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [ref]);
+
+  return edges;
+}
+
+// Decides what the ninja is doing and which end of the box he is at. Anything other than idle
+// (the user typing, a reply coming in) stops a trick done on the spot at once. A trip to the other
+// end is allowed to finish, so he never stops halfway or stays invisible.
+function useNinjaLife(idle: boolean, distance: () => number) {
   const [act, setAct] = useState<Act>("none");
+  const [side, setSide] = useState<Side>("left");
+  const [travel, setTravel] = useState<Travel>({ ms: 0, spin: 0 });
+  const sideRef = useRef<Side>("left");
+  const travelling = useRef(false);
+  const tripTimers = useRef<number[]>([]);
+
+  useEffect(() => () => tripTimers.current.forEach(clearTimeout), []);
 
   useEffect(() => {
-    setAct("none");
+    if (!travelling.current) setAct("none");
     if (!idle) return;
 
     const timers: number[] = [];
     const later = (ms: number, fn: () => void) => timers.push(window.setTimeout(fn, ms));
+    // Timers that finish a trip; they are not cancelled when the user starts typing.
+    const finish = (ms: number, fn: () => void) => tripTimers.current.push(window.setTimeout(fn, ms));
+    const moveTo = (to: Side) => {
+      sideRef.current = to;
+      setSide(to);
+    };
     const quietSince = Date.now();
     let last: Trick | undefined;
 
@@ -47,6 +102,45 @@ function useIdleAct(idle: boolean): Act {
       later(SLEEP_AFTER_MS, () => setAct("sleep"));
       return () => timers.forEach(clearTimeout);
     }
+
+    // Starts a trick and returns how long it lasts.
+    const perform = (trick: Trick): number => {
+      if (trick === "yawn" || trick === "throw") {
+        const ms = trick === "yawn" ? YAWN_MS : THROW_MS;
+        setAct(trick);
+        later(ms, () => setAct("none"));
+        return ms;
+      }
+
+      const to = other(sideRef.current);
+      const dist = distance();
+      travelling.current = true;
+      const arrive = (ms: number) =>
+        finish(ms, () => {
+          travelling.current = false;
+          setAct("none");
+        });
+
+      if (trick === "vanish") {
+        setAct("vanish-out");
+        finish(VANISH_OUT_MS, () => {
+          moveTo(to);
+          setAct("vanish-in");
+        });
+        arrive(VANISH_OUT_MS + VANISH_IN_MS);
+        return VANISH_OUT_MS + VANISH_IN_MS;
+      }
+
+      const walking = trick === "walk";
+      const ms = Math.round((dist / (walking ? WALK_PX_PER_SECOND : ROLL_PX_PER_SECOND)) * 1000);
+      const turns = Math.max(1, Math.round(dist / ROLL_PX_PER_TURN));
+      // Rolling to the right turns clockwise, to the left anticlockwise.
+      setTravel({ ms, spin: walking ? 0 : turns * 360 * (to === "right" ? 1 : -1) });
+      setAct(trick);
+      moveTo(to);
+      arrive(ms);
+      return ms;
+    };
 
     const next = (wait: number) =>
       later(wait, () => {
@@ -59,38 +153,91 @@ function useIdleAct(idle: boolean): Act {
           next(between(BETWEEN_TRICKS_MS));
           return;
         }
-        const options = TRICKS.filter((t) => t !== last);
+        const roomToTravel = distance() >= MIN_TRAVEL_PX;
+        const options = TRICKS.filter((t) => t !== last && (roomToTravel || !TRAVELS.has(t)));
         const trick = options[Math.floor(Math.random() * options.length)];
         last = trick;
-        setAct(trick);
-        later(TRICK_MS[trick], () => {
-          setAct("none");
-          next(between(BETWEEN_TRICKS_MS));
-        });
+        later(perform(trick), () => next(between(BETWEEN_TRICKS_MS)));
       });
 
     next(between(FIRST_TRICK_MS));
     return () => timers.forEach(clearTimeout);
+    // `distance` reads the latest measurement through a ref, so it does not restart the schedule.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idle]);
 
-  return act;
+  return { act, side, travel };
 }
 
+// Smoke puffs of the vanishing trick: where each starts, how far it drifts, how big and how grey.
+const PUFFS = [
+  { cx: 40, cy: 44, r: 13, dx: 0, dy: -4, shade: "#d4d7e1", delay: 0 },
+  { cx: 28, cy: 48, r: 11, dx: -14, dy: 2, shade: "#bfc3d0", delay: 40 },
+  { cx: 52, cy: 48, r: 11, dx: 14, dy: 2, shade: "#bfc3d0", delay: 40 },
+  { cx: 33, cy: 34, r: 10, dx: -10, dy: -12, shade: "#e2e4ec", delay: 80 },
+  { cx: 47, cy: 34, r: 10, dx: 10, dy: -12, shade: "#e2e4ec", delay: 80 },
+  { cx: 40, cy: 60, r: 10, dx: 0, dy: 6, shade: "#aeb2c0", delay: 60 },
+  { cx: 40, cy: 26, r: 9, dx: 0, dy: -16, shade: "#eceef4", delay: 120 },
+];
+
+// Leaves that scatter as he vanishes and swirl in as he appears.
+const LEAVES = [
+  { lx: -26, ly: -18, lr: -220, delay: 60 },
+  { lx: 24, ly: -22, lr: 260, delay: 100 },
+  { lx: -20, ly: 14, lr: 180, delay: 140 },
+  { lx: 28, ly: 10, lr: -200, delay: 80 },
+];
+
+const vars = (v: Record<string, string>) => v as CSSProperties;
+
 export default function NinjaBuddy({ mood }: { mood: NinjaMood }) {
-  const act = useIdleAct(mood === "idle");
+  const ref = useRef<HTMLDivElement>(null);
+  const edges = useEdges(ref);
+  const edgesRef = useRef(edges);
+  edgesRef.current = edges;
+  const { act, side, travel } = useNinjaLife(mood === "idle", () =>
+    edgesRef.current ? edgesRef.current.right - edgesRef.current.left : 0,
+  );
+
   const label = mood === "idle" ? null : LABELS[mood];
   const standing = act === "walk" || act === "cartwheel";
   const eyesClosed = act === "sleep" || act === "yawn";
+  const vanishing = act === "vanish-out" || act === "vanish-in";
+
+  // Position along the box. Walking glides at an even pace, a cartwheel speeds up and slows down,
+  // and appearing at the other end after vanishing is instant.
+  const x = edges ? edges[side] : 30;
+  const glide =
+    act === "walk"
+      ? `transform ${travel.ms}ms linear`
+      : act === "cartwheel"
+        ? `transform ${travel.ms}ms ease-in-out`
+        : "none";
 
   return (
-    <div className="ninja" data-mood={mood} data-act={act}>
-      {/* Moves sideways for walking and cartwheels; the drawing inside flips, bobs and spins. */}
+    <div
+      ref={ref}
+      className="ninja"
+      data-mood={mood}
+      data-act={act}
+      data-side={side}
+      style={{
+        transform: `translateX(${x}px)`,
+        transition: glide,
+        ...vars({ "--roll-ms": `${travel.ms}ms`, "--spin": `${travel.spin}deg` }),
+      }}
+    >
+      {/* Flips to face the way he walks. */}
       <div className="ninja-mover">
         <svg className="ninja-art" viewBox="0 0 80 72" aria-hidden="true">
           <defs>
             <clipPath id="ninja-head-clip">
               <circle cx="40" cy="30" r="22" />
             </clipPath>
+            {/* Softens the smoke puffs so they read as one cloud. */}
+            <filter id="ninja-smoke-blur" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="1.6" />
+            </filter>
           </defs>
 
           <g className="ninja-figure">
@@ -164,17 +311,39 @@ export default function NinjaBuddy({ mood }: { mood: NinjaMood }) {
           </g>
 
           {act === "throw" && (
-            <g className="ninja-thrown">
-              <path d="M58 46 l1.4 3.6 l3.6 1.4 l-3.6 1.4 l-1.4 3.6 l-1.4 -3.6 l-3.6 -1.4 l3.6 -1.4 z" />
+            // Thrown with the hand nearer the middle of the box, so it never flies at the send button.
+            <g transform={side === "right" ? "translate(-36 0)" : undefined}>
+              <path
+                className="ninja-thrown"
+                d="M58 46 l1.4 3.6 l3.6 1.4 l-3.6 1.4 l-1.4 3.6 l-1.4 -3.6 l-3.6 -1.4 l3.6 -1.4 z"
+              />
             </g>
           )}
 
-          {act === "vanish" && (
-            <g className="ninja-smoke">
-              <circle cx="30" cy="44" r="14" />
-              <circle cx="50" cy="40" r="15" />
-              <circle cx="40" cy="56" r="14" />
-              <circle cx="40" cy="28" r="13" />
+          {vanishing && (
+            // Keyed by phase so the puff plays again where he reappears.
+            <g className="ninja-smoke" key={act}>
+              <g filter="url(#ninja-smoke-blur)">
+                {PUFFS.map((p, i) => (
+                  <circle
+                    key={i}
+                    cx={p.cx}
+                    cy={p.cy}
+                    r={p.r}
+                    fill={p.shade}
+                    style={vars({ "--dx": `${p.dx}px`, "--dy": `${p.dy}px`, "--delay": `${p.delay}ms` })}
+                  />
+                ))}
+              </g>
+              {LEAVES.map((l, i) => (
+                <g key={i} transform="translate(38 44)">
+                  <path
+                    className="ninja-leaf"
+                    d="M0 0 q4 -4.5 9 0 q-4 4.5 -9 0 z"
+                    style={vars({ "--lx": `${l.lx}px`, "--ly": `${l.ly}px`, "--lr": `${l.lr}deg`, "--delay": `${l.delay}ms` })}
+                  />
+                </g>
+              ))}
             </g>
           )}
 

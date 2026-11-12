@@ -525,14 +525,13 @@ body {
 
 /* ---- the ninja buddy ---- */
 
-/* Sits cross-legged on the top edge of the message box, sinking into the border a little. */
+/* Sits cross-legged on the top edge of the message box, sinking into the border a little. Which
+   end of the box he is at is set from script (transform), since it depends on the box's width. */
 .ninja {
   position: absolute;
   top: -2px;
-  left: 30px;
+  left: 0;
   z-index: 2;
-  display: flex;
-  align-items: flex-start;
   pointer-events: none;
 }
 
@@ -763,13 +762,9 @@ body {
   stroke-linecap: round;
 }
 
-/* Walk: along the edge of the box and back, facing the way he goes (headband trailing behind). */
-.ninja[data-act="walk"] .ninja-mover {
-  animation: walk-path 5.2s ease-in-out;
-}
-
-.ninja[data-act="walk"] .ninja-art {
-  animation: walk-face 5.2s linear;
+/* Walk: to the other end of the box, facing the way he goes (headband trailing behind). */
+.ninja[data-act="walk"][data-side="right"] .ninja-mover {
+  transform: scaleX(-1);
 }
 
 .ninja[data-act="walk"] .ninja-figure {
@@ -786,30 +781,6 @@ body {
 
 .ninja[data-act="walk"] .ninja-step-right {
   animation: step 0.32s ease-in-out -0.32s infinite alternate;
-}
-
-@keyframes walk-path {
-  0% {
-    transform: translateX(0);
-  }
-  46%,
-  54% {
-    transform: translateX(120px);
-  }
-  100% {
-    transform: translateX(0);
-  }
-}
-
-@keyframes walk-face {
-  0%,
-  49.9% {
-    transform: scaleX(-1);
-  }
-  50%,
-  100% {
-    transform: scaleX(1);
-  }
 }
 
 @keyframes bob {
@@ -830,55 +801,76 @@ body {
   }
 }
 
-/* Cartwheel: one roll out, one roll back. */
-.ninja[data-act="cartwheel"] .ninja-mover {
-  animation: cartwheel-path 1.8s ease-in-out;
-}
-
+/* Cartwheel: rolls to the other end of the box; the number of turns and the direction are set
+   from script to match the distance. */
 .ninja[data-act="cartwheel"] .ninja-figure {
   transform-origin: center;
-  animation: cartwheel-spin 1.8s ease-in-out;
+  animation: roll var(--roll-ms) ease-in-out;
 }
 
-@keyframes cartwheel-path {
-  0% {
-    transform: translateX(0);
-  }
-  40%,
-  60% {
-    transform: translateX(100px);
-  }
-  100% {
-    transform: translateX(0);
-  }
-}
-
-@keyframes cartwheel-spin {
-  0% {
+@keyframes roll {
+  from {
     transform: rotate(0);
   }
-  40%,
-  60% {
-    transform: rotate(360deg);
-  }
-  100% {
-    transform: rotate(0);
+  to {
+    transform: rotate(var(--spin));
   }
 }
 
-/* Throw: winds up and sends a shuriken spinning off to the right. */
-.ninja[data-act="throw"] .ninja-arm-right {
+/* Throw: winds up and sends a shuriken spinning off across the box (to the right from the left
+   end, to the left from the right end). */
+.ninja[data-act="throw"][data-side="left"] .ninja-arm-right {
   transform-origin: top center;
   animation: wind-up 1.4s ease-in-out;
 }
 
-.ninja-thrown path {
-  fill: #c9ced8;
+.ninja[data-act="throw"][data-side="right"] .ninja-arm-left {
+  transform-origin: top center;
+  animation: wind-up-left 1.4s ease-in-out;
 }
 
 .ninja-thrown {
+  fill: #c9ced8;
   transform-origin: center;
   animation: fly 1.4s ease-out forwards;
+}
+
+.ninja[data-side="right"] .ninja-thrown {
+  animation-name: fly-left;
+}
+
+@keyframes wind-up-left {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  18% {
+    transform: rotate(150deg);
+  }
+  32% {
+    transform: rotate(-30deg);
+  }
+  55% {
+    transform: rotate(0);
+  }
+}
+
+@keyframes fly-left {
+  0%,
+  28% {
+    opacity: 0;
+    transform: translateX(0) rotate(0);
+  }
+  32% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-150px) rotate(-1080deg);
+  }
 }
 
 @keyframes wind-up {
@@ -915,66 +907,135 @@ body {
   }
 }
 
-/* Vanish: a puff of smoke, gone for a moment, then another puff and he is back. */
-.ninja[data-act="vanish"] .ninja-figure {
-  animation: vanish 1.8s ease-in-out;
+/* Vanish: a quick hand sign, then a burst of smoke and scattering leaves and he is gone. He
+   reappears at the other end in a second puff, popping back in with a little bounce. */
+.ninja[data-act="vanish-out"] .ninja-figure {
+  transform-origin: center bottom;
+  animation: poof-out 0.8s ease-in forwards;
 }
 
+.ninja[data-act="vanish-out"] .ninja-arm-left {
+  transform-origin: top center;
+  animation: sign-left 0.8s ease-out forwards;
+}
+
+.ninja[data-act="vanish-out"] .ninja-arm-right {
+  transform-origin: top center;
+  animation: sign-right 0.8s ease-out forwards;
+}
+
+.ninja[data-act="vanish-in"] .ninja-figure {
+  transform-origin: center bottom;
+  animation: poof-in 0.9s ease-out;
+}
+
+/* The burst starts once the hand sign is made; on arrival it starts at once. */
 .ninja-smoke circle {
-  fill: rgba(205, 208, 220, 0.9);
   transform-origin: center;
   transform: scale(0);
-  animation: puff 1.8s ease-out;
+  opacity: 0;
+  animation: smoke 0.65s ease-out forwards;
+  animation-delay: calc(var(--delay) + 0.22s);
 }
 
-.ninja-smoke circle:nth-child(2) {
-  animation-delay: 0.05s;
+.ninja[data-act="vanish-in"] .ninja-smoke circle {
+  animation-delay: var(--delay);
 }
 
-.ninja-smoke circle:nth-child(3) {
-  animation-delay: 0.1s;
+.ninja-leaf {
+  fill: #6fae5b;
+  transform-origin: center;
+  opacity: 0;
+  animation: leaf 0.75s ease-out forwards;
+  animation-delay: calc(var(--delay) + 0.22s);
 }
 
-@keyframes vanish {
-  0%,
-  18% {
-    opacity: 1;
-  }
-  26%,
-  68% {
-    opacity: 0;
-  }
-  78%,
-  100% {
-    opacity: 1;
-  }
+.ninja[data-act="vanish-in"] .ninja-leaf {
+  animation-delay: var(--delay);
 }
 
-@keyframes puff {
+@keyframes sign-left {
   0% {
-    transform: scale(0);
-    opacity: 0;
+    transform: rotate(0);
   }
-  14% {
-    transform: scale(0.6);
-    opacity: 0.95;
-  }
-  34% {
-    transform: scale(1.3);
-    opacity: 0;
-  }
-  60% {
-    transform: scale(0);
-    opacity: 0;
-  }
-  70% {
-    transform: scale(0.6);
-    opacity: 0.95;
-  }
-  92%,
+  30%,
   100% {
-    transform: scale(1.3);
+    transform: translate(6px, -3px) rotate(-40deg);
+  }
+}
+
+@keyframes sign-right {
+  0% {
+    transform: rotate(0);
+  }
+  30%,
+  100% {
+    transform: translate(-6px, -3px) rotate(40deg);
+  }
+}
+
+@keyframes poof-out {
+  0%,
+  28% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.06, 0.92);
+  }
+  45%,
+  100% {
     opacity: 0;
+    transform: scale(0.35);
+  }
+}
+
+@keyframes poof-in {
+  0%,
+  15% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+  68% {
+    transform: scale(0.95);
+  }
+  82%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes smoke {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.5);
+  }
+  20% {
+    opacity: 0.95;
+    transform: translate(calc(var(--dx) * 0.3), calc(var(--dy) * 0.3)) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(1.45);
+  }
+}
+
+@keyframes leaf {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--lx), var(--ly)) rotate(var(--lr));
   }
 }
 
@@ -1101,9 +1162,17 @@ body {
   }
 }
 
-/* Speech bubble next to the ninja's head. */
+/* Speech bubble next to the ninja's head: to his right, or to his left when he is at the right
+   end of the box, so it never covers the send button. */
 .ninja-status {
-  margin: 8px 0 0 6px;
+  position: absolute;
+  top: 8px;
+  left: 82px;
+}
+
+.ninja[data-side="right"] .ninja-status {
+  left: auto;
+  right: 82px;
 }
 
 .ninja-bubble {
@@ -1151,6 +1220,25 @@ body {
 
 .ninja[data-mood="oops"] .ninja-bubble::before {
   border-right-color: var(--red);
+}
+
+/* At the right end the tail points right, back at the ninja. */
+.ninja[data-side="right"] .ninja-bubble::before {
+  left: auto;
+  right: -8px;
+  border-width: 5px 0 5px 8px;
+  border-color: transparent transparent transparent var(--line-strong);
+}
+
+.ninja[data-side="right"] .ninja-bubble::after {
+  left: auto;
+  right: -5.5px;
+  border-width: 4px 0 4px 6px;
+  border-color: transparent transparent transparent var(--raised);
+}
+
+.ninja[data-side="right"][data-mood="oops"] .ninja-bubble::before {
+  border-left-color: var(--red);
 }
 
 .ninja-dots {
@@ -1245,9 +1333,5 @@ body {
     inset: 0;
     z-index: 15;
     background: rgba(0, 0, 0, 0.5);
-  }
-
-  .ninja {
-    left: 22px;
   }
 }
