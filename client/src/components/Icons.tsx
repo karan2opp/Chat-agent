@@ -9,3 +9,12 @@ export function PanelIcon() {
     </svg>
   );
 }
+
+// An arrow pointing down: jumps to the newest message.
+export function ArrowDownIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="icon">
+      <path d="M12 5v14M6 13l6 6 6-6" />
+    </svg>
+  );
+}

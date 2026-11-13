@@ -12,27 +12,22 @@ const LABELS: Record<Exclude<NinjaMood, "idle">, { text: string; dots: boolean }
   oops: { text: "Oops, that failed", dots: false },
 };
 
-// Something the ninja does on his own while nobody is typing. Walking, cartwheeling and
-// vanishing take him to the other end of the message box, where he stays.
-type Trick = "walk" | "yawn" | "cartwheel" | "throw" | "vanish";
-type Act = "none" | "walk" | "yawn" | "cartwheel" | "throw" | "vanish-out" | "vanish-in" | "sleep";
+// Something the ninja does on his own while nobody is typing. Walking and vanishing take him to
+// the other end of the message box, where he stays.
+type Trick = "walk" | "yawn" | "throw" | "vanish";
+type Act = "none" | "walk" | "yawn" | "throw" | "vanish-out" | "vanish-in" | "sleep";
 type Side = "left" | "right";
 
-const TRICKS: Trick[] = ["walk", "yawn", "cartwheel", "throw", "vanish"];
-const TRAVELS = new Set<Trick>(["walk", "cartwheel", "vanish"]);
+const TRICKS: Trick[] = ["walk", "yawn", "throw", "vanish"];
+const TRAVELS = new Set<Trick>(["walk", "vanish"]);
 
 // Animation lengths; they must match the CSS.
 const YAWN_MS = 2400;
 const THROW_MS = 1400;
 const VANISH_OUT_MS = 800;
 const VANISH_IN_MS = 900;
-// Walking and cartwheeling take as long as the distance needs.
+// Walking takes as long as the distance needs.
 const WALK_PX_PER_SECOND = 70;
-const ROLL_PX_PER_SECOND = 170;
-// About how far one cartwheel carries him (roughly the span of his outstretched arms and legs).
-const ROLL_PX_PER_TURN = 130;
-// A cartwheel starts and ends standing with arms out, held this long.
-const CARTWHEEL_POSE_MS = 350;
 // Too narrow a box (a small phone) and he stays put: only the tricks done on the spot.
 const MIN_TRAVEL_PX = 60;
 
@@ -49,17 +44,13 @@ const EDGE_GAP = 10;
 const between = ([min, max]: number[]) => min + Math.random() * (max - min);
 const other = (side: Side): Side => (side === "left" ? "right" : "left");
 
-// A trip along the box: how long the moving part takes, how long to wait before moving (the
-// cartwheel's starting pose), and for a cartwheel how many turns and which way.
-type Travel = { ms: number; delay: number; turns: number; spin: number };
-
 // Where the two ends of the message box are, kept up to date when the window resizes.
 function useEdges(ref: RefObject<HTMLDivElement>) {
   const [edges, setEdges] = useState<{ left: number; right: number } | null>(null);
 
   useLayoutEffect(() => {
     const box = ref.current?.parentElement;
-    const input = box?.querySelector("textarea");
+    const input = box?.querySelector<HTMLElement>(".composer-box");
     if (!box || !input) return;
     const measure = () => {
       const left = input.offsetLeft + EDGE_GAP;
@@ -80,7 +71,8 @@ function useEdges(ref: RefObject<HTMLDivElement>) {
 function useNinjaLife(idle: boolean, distance: () => number) {
   const [act, setAct] = useState<Act>("none");
   const [side, setSide] = useState<Side>("left");
-  const [travel, setTravel] = useState<Travel>({ ms: 0, delay: 0, turns: 0, spin: 0 });
+  // How long the current walk to the other end takes.
+  const [walkMs, setWalkMs] = useState(0);
   const sideRef = useRef<Side>("left");
   const travelling = useRef(false);
   const tripTimers = useRef<number[]>([]);
@@ -136,25 +128,12 @@ function useNinjaLife(idle: boolean, distance: () => number) {
         return VANISH_OUT_MS + VANISH_IN_MS;
       }
 
-      if (trick === "walk") {
-        const ms = Math.round((dist / WALK_PX_PER_SECOND) * 1000);
-        setTravel({ ms, delay: 0, turns: 0, spin: 0 });
-        setAct("walk");
-        moveTo(to);
-        arrive(ms);
-        return ms;
-      }
-
-      // Cartwheel: arms out, then wheel across (to the right clockwise, to the left anticlockwise),
-      // then stand with arms out again before sitting down.
-      const ms = Math.round((dist / ROLL_PX_PER_SECOND) * 1000);
-      const turns = Math.max(1, Math.round(dist / ROLL_PX_PER_TURN));
-      setTravel({ ms, delay: CARTWHEEL_POSE_MS, turns, spin: turns * 360 * (to === "right" ? 1 : -1) });
-      setAct("cartwheel");
+      const ms = Math.round((dist / WALK_PX_PER_SECOND) * 1000);
+      setWalkMs(ms);
+      setAct("walk");
       moveTo(to);
-      const total = CARTWHEEL_POSE_MS + ms + CARTWHEEL_POSE_MS;
-      arrive(total);
-      return total;
+      arrive(ms);
+      return ms;
     };
 
     const next = (wait: number) =>
@@ -181,7 +160,7 @@ function useNinjaLife(idle: boolean, distance: () => number) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idle]);
 
-  return { act, side, travel };
+  return { act, side, walkMs };
 }
 
 // Smoke puffs of the vanishing trick: where each starts, how far it drifts, how big and how grey.
@@ -204,67 +183,6 @@ const LEAVES = [
 ];
 
 const vars = (v: Record<string, string>) => v as CSSProperties;
-
-// The cartwheel pose: standing with arms stretched out and legs apart like a star. The arms rise
-// as the cartwheel starts, then the whole star wheels across the box around his middle, so hands
-// and feet take turns on the edge.
-function StarPose() {
-  return (
-    <g className="ninja-figure ninja-star">
-      <g className="ninja-tails">
-        <path d="M60 21 q9 -3 15 2 q-7 1 -14 2 z" />
-        <path d="M60 23 q8 3 12 10 q-6 -4 -12 -6 z" />
-      </g>
-
-      {/* Each arm is drawn reaching out and a little up; it starts lowered and rises. */}
-      <g className="ninja-star-arm ninja-star-arm-left">
-        <g className="ninja-pose" transform="rotate(14 31 49)">
-          <rect x="13" y="46.5" width="19" height="5.2" rx="2.6" className="ninja-suit" />
-          <circle cx="14" cy="49.1" r="3" className="ninja-foot" />
-        </g>
-      </g>
-      <g className="ninja-star-arm ninja-star-arm-right">
-        <g className="ninja-pose" transform="rotate(-14 49 49)">
-          <rect x="48" y="46.5" width="19" height="5.2" rx="2.6" className="ninja-suit" />
-          <circle cx="66" cy="49.1" r="3" className="ninja-foot" />
-        </g>
-      </g>
-
-      <g className="ninja-star-leg ninja-star-leg-left">
-        <g className="ninja-pose" transform="rotate(22 36 59)">
-          <rect x="32.8" y="58" width="6.5" height="12" rx="3.2" className="ninja-suit" />
-          <ellipse cx="35" cy="70" rx="4.4" ry="2.4" className="ninja-foot" />
-        </g>
-      </g>
-      <g className="ninja-star-leg ninja-star-leg-right">
-        <g className="ninja-pose" transform="rotate(-22 44 59)">
-          <rect x="40.7" y="58" width="6.5" height="12" rx="3.2" className="ninja-suit" />
-          <ellipse cx="45" cy="70" rx="4.4" ry="2.4" className="ninja-foot" />
-        </g>
-      </g>
-
-      <rect x="30" y="45" width="20" height="18" rx="9" className="ninja-suit" />
-      <rect x="30" y="54" width="20" height="4" className="ninja-belt" />
-
-      <g className="ninja-head">
-        <circle cx="40" cy="30" r="22" className="ninja-suit" />
-        <rect x="14" y="16" width="52" height="6" clipPath="url(#ninja-head-clip)" className="ninja-band" />
-        <circle cx="61.5" cy="21.5" r="2.6" className="ninja-band" />
-        <rect x="34.5" y="15.5" width="11" height="8" rx="1.8" className="ninja-plate" />
-        <circle cx="40" cy="19.5" r="2" className="ninja-plate-mark" />
-        <ellipse cx="40" cy="33" rx="16.5" ry="8.5" className="ninja-face" />
-        <ellipse cx="29" cy="37" rx="3" ry="1.6" className="ninja-blush" />
-        <ellipse cx="51" cy="37" rx="3" ry="1.6" className="ninja-blush" />
-        <g className="ninja-eyes">
-          <ellipse cx="34" cy="33" rx="2.7" ry="3.3" />
-          <ellipse cx="46" cy="33" rx="2.7" ry="3.3" />
-          <circle cx="35" cy="31.6" r="0.95" className="ninja-shine" />
-          <circle cx="47" cy="31.6" r="0.95" className="ninja-shine" />
-        </g>
-      </g>
-    </g>
-  );
-}
 
 // The ninja seen from the side, facing right, for walking (flipped to walk left). The far arm and
 // leg are drawn behind the body in a darker shade; arms and legs swing in opposite pairs.
@@ -314,7 +232,7 @@ export default function NinjaBuddy({ mood }: { mood: NinjaMood }) {
   const edges = useEdges(ref);
   const edgesRef = useRef(edges);
   edgesRef.current = edges;
-  const { act, side, travel } = useNinjaLife(mood === "idle", () =>
+  const { act, side, walkMs } = useNinjaLife(mood === "idle", () =>
     edgesRef.current ? edgesRef.current.right - edgesRef.current.left : 0,
   );
 
@@ -322,11 +240,10 @@ export default function NinjaBuddy({ mood }: { mood: NinjaMood }) {
   const eyesClosed = act === "sleep" || act === "yawn";
   const vanishing = act === "vanish-out" || act === "vanish-in";
 
-  // Position along the box. Walking and cartwheeling move at an even pace (a cartwheel only once
-  // the starting pose is struck), and appearing at the other end after vanishing is instant.
+  // Position along the box. Walking moves at an even pace; appearing at the other end after
+  // vanishing is instant.
   const x = edges ? edges[side] : 30;
-  const glide =
-    act === "walk" || act === "cartwheel" ? `transform ${travel.ms}ms linear ${travel.delay}ms` : "none";
+  const glide = act === "walk" ? `transform ${walkMs}ms linear` : "none";
 
   return (
     <div
@@ -338,13 +255,6 @@ export default function NinjaBuddy({ mood }: { mood: NinjaMood }) {
       style={{
         transform: `translateX(${x}px)`,
         transition: glide,
-        ...vars({
-          "--roll-ms": `${travel.ms}ms`,
-          "--pose-ms": `${travel.delay}ms`,
-          "--turn-ms": `${travel.turns ? travel.ms / travel.turns : 0}ms`,
-          "--turns": String(travel.turns),
-          "--spin": `${travel.spin}deg`,
-        }),
       }}
     >
       {/* Flips to face the way he walks. */}
@@ -362,8 +272,6 @@ export default function NinjaBuddy({ mood }: { mood: NinjaMood }) {
 
           {act === "walk" ? (
             <SideView />
-          ) : act === "cartwheel" ? (
-            <StarPose />
           ) : (
             <g className="ninja-figure">
               {/* Headband tails, behind the head so they flutter out from the knot. */}

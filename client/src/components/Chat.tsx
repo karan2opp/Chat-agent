@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { getChat } from "../lib/api";
 import { streamChat } from "../lib/streamChat";
+import { ArrowDownIcon } from "./Icons";
 import Markdown from "./Markdown";
 import NinjaBuddy, { Shuriken, type NinjaMood } from "./NinjaBuddy";
 
@@ -23,7 +24,12 @@ export default function Chat({ chatId: initialChatId, onChatCreated, onTurnSaved
   const [error, setError] = useState<string | null>(null);
   // The message whose reply failed, so the error banner can offer to send it again.
   const [failedText, setFailedText] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Whether the view is at the newest message. Only then does it follow a reply as it streams in,
+  // so scrolling up to read something is not undone by the next words arriving.
+  const atBottom = useRef(true);
+  const [showJump, setShowJump] = useState(false);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -33,9 +39,29 @@ export default function Chat({ chatId: initialChatId, onChatCreated, onTurnSaved
     };
   }, []);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (list && atBottom.current) list.scrollTop = list.scrollHeight;
   }, [messages]);
+
+  // The box grows with what is typed; CSS caps its height.
+  useLayoutEffect(() => {
+    const box = inputRef.current;
+    if (!box) return;
+    box.style.height = "auto";
+    box.style.height = `${box.scrollHeight}px`;
+  }, [input]);
+
+  function onScroll() {
+    const list = listRef.current;
+    if (!list) return;
+    atBottom.current = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+    setShowJump(!atBottom.current);
+  }
+
+  function jumpToBottom() {
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+  }
 
   // Load the saved turns of an existing chat.
   useEffect(() => {
@@ -72,6 +98,8 @@ export default function Chat({ chatId: initialChatId, onChatCreated, onTurnSaved
     const text = (retryText ?? input).trim();
     if (!text || streaming || loading) return;
 
+    // Sending always brings the new message and its reply into view.
+    atBottom.current = true;
     setMessages((prev) => [
       ...prev,
       { role: "user", content: text },
@@ -132,25 +160,26 @@ export default function Chat({ chatId: initialChatId, onChatCreated, onTurnSaved
 
   return (
     <div className="chat">
-      <div className="messages">
-        {loading && <p className="empty">Loading chat…</p>}
-        {!loading && messages.length === 0 && (
-          <p className="empty">
-            Hi, I'm Ray, a ninja here to help.
-            <br />
-            Ask me anything. I can search the web.
-          </p>
-        )}
-        {messages.map((m, i) => (
-          <div key={i} className={`message ${m.role}`}>
-            {m.role === "assistant" && m.content ? (
-              <Markdown text={m.content} />
-            ) : (
-              m.content || (streaming && i === messages.length - 1 ? "…" : "")
-            )}
-          </div>
-        ))}
-        <div ref={bottomRef} />
+      <div className="messages" ref={listRef} onScroll={onScroll}>
+        <div className="thread">
+          {loading && <p className="empty">Loading chat…</p>}
+          {!loading && messages.length === 0 && (
+            <p className="empty">
+              Hi, I'm Ray, a ninja here to help.
+              <br />
+              Ask me anything. I can search the web.
+            </p>
+          )}
+          {messages.map((m, i) => (
+            <div key={i} className={`message ${m.role}`}>
+              {m.role === "assistant" && m.content ? (
+                <Markdown text={m.content} />
+              ) : (
+                m.content || (streaming && i === messages.length - 1 ? "…" : "")
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
       {error && (
@@ -165,18 +194,30 @@ export default function Chat({ chatId: initialChatId, onChatCreated, onTurnSaved
       )}
 
       <div className="composer">
+        {showJump && (
+          <button className="to-bottom" onClick={jumpToBottom} aria-label="Scroll to the newest message">
+            <ArrowDownIcon />
+          </button>
+        )}
         <NinjaBuddy mood={mood} />
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder="Type a message (Enter to send, Shift+Enter for a new line)"
-          rows={2}
-        />
-        <button className="send" onClick={() => void send()} disabled={streaming || loading || !input.trim()}>
-          <Shuriken spinning={streaming} />
-          <span>Send</span>
-        </button>
+        <div className="composer-box">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder="Ask Ray anything"
+            rows={1}
+          />
+          <button
+            className="send"
+            onClick={() => void send()}
+            disabled={streaming || loading || !input.trim()}
+            aria-label="Send"
+          >
+            <Shuriken spinning={streaming} />
+          </button>
+        </div>
       </div>
     </div>
   );
