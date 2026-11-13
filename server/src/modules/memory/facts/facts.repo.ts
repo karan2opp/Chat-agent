@@ -7,10 +7,6 @@ export function getActiveFacts(): Promise<UserFact[]> {
   return db.select().from(userFacts).where(isNull(userFacts.supersededAt)).orderBy(asc(userFacts.id));
 }
 
-export function getFactHistory(): Promise<UserFact[]> {
-  return db.select().from(userFacts).where(isNotNull(userFacts.supersededAt)).orderBy(desc(userFacts.supersededAt));
-}
-
 // The most recently replaced values, for showing next to the current ones in the prompt. Only a
 // couple per topic are shown, so a bounded number of the newest is plenty.
 export function getRecentlyReplacedFacts(limit: number): Promise<UserFact[]> {
