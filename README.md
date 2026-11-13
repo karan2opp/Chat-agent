@@ -9,23 +9,51 @@ questions:
 
 How it works, and why it is built this way, is in [DESIGN.md](DESIGN.md).
 
-## Run it
+## Setup and run
 
-You need **Node 22** (tested on 22.12), **Docker** (for Postgres) and an **OpenAI API key**.
+You need **Node 22** (tested on 22.12), **Docker Desktop** (for Postgres) and an **OpenAI API key**.
 
-```bash
-npm install
-cp .env.example .env        # then set OPENAI_API_KEY in .env
-npm run dev
-```
+> **Open Docker Desktop first.** Start it and wait until it says Docker is running before
+> `npm run dev`. The database runs in Docker, and without it the app cannot start.
 
-Open **http://localhost:5173**.
+1. **Get the code**
 
-`npm run dev` starts Postgres in Docker (host port 54329), applies the database migrations, and
-starts the API (port 3001) and the web app (port 5173), both reloading on changes.
+   ```bash
+   git clone https://github.com/karan2opp/Chat-agent.git
+   cd Chat-agent
+   ```
 
-`OPENAI_API_KEY` is the only key needed; it covers the model, the hosted web search tool and
-embeddings. Everything else in [.env.example](.env.example) has a working default.
+2. **Install the packages**
+
+   ```bash
+   npm install
+   ```
+
+3. **Add your OpenAI key.** Copy the example settings file:
+
+   ```bash
+   cp .env.example .env        # Windows Command Prompt: copy .env.example .env
+   ```
+
+   Open `.env` and set `OPENAI_API_KEY=sk-...`. It is the only key needed; it covers the model,
+   web search and embeddings. Everything else in [.env.example](.env.example) has a working default.
+
+4. **Start Docker Desktop**, if it is not running yet.
+
+5. **Run it**
+
+   ```bash
+   npm run dev
+   ```
+
+   This starts Postgres in Docker (host port 54329), applies the database migrations, then
+   starts the API (port 3001) and the web app (port 5173), both reloading on changes. Wait for
+   `[server] server listening on http://localhost:3001`.
+
+6. **Open http://localhost:5173** and say hi to Ray.
+
+To stop, press `Ctrl+C`. The database keeps running in Docker with your chats saved; stop it
+with `docker compose down` (add `-v` to delete the saved data too).
 
 ## Try it
 
@@ -36,9 +64,8 @@ embeddings. Everything else in [.env.example](.env.example) has a working defaul
 4. **Has it changed?** Ask a price question, then later: "Has the price you told me changed since?"
    Ray looks up what he said then, searches again, and compares.
 5. **Ray himself:** "Where are you from?" He tells a story and keeps it the same in every chat.
-6. **What Ray knows about you:** http://localhost:3001/api/memory/profile
 
-Leave the chat alone for a while and the ninja above the message box walks, cartwheels, throws a
+Leave the chat alone for a while and the ninja above the message box walks, yawns, throws a
 shuriken or naps.
 
 ## Commands
