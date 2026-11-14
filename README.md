@@ -77,6 +77,7 @@ shuriken or naps.
 | `npm run build` | Type-check and build the server and the client |
 | `npm start` | Run the built server |
 | `npm run db:generate` | Generate a migration after changing a `*.table.ts` file |
+| `npm run db:studio` | Browse the tables in Drizzle Studio (https://local.drizzle.studio) |
 
 ## Configuration
 
